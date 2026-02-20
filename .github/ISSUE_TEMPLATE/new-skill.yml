@@ -1,0 +1,133 @@
+name: New Skill Proposal
+description: Propose a new CockroachDB skill for the repository
+title: "[Skill] "
+labels: ["skill-proposal", "needs-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for proposing a new CockroachDB skill! Please fill out the information below to help us understand your proposal.
+
+  - type: input
+    id: skill-name
+    attributes:
+      label: Skill Name
+      description: Proposed name for the skill (lowercase, hyphens only, preferably gerund form like "analyzing-slow-queries")
+      placeholder: "e.g., analyzing-slow-queries"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Domain
+      description: Which operational domain does this skill belong to?
+      options:
+        - Onboarding and Migrations
+        - Application Development
+        - Performance and Scaling
+        - Operations and Lifecycle
+        - Resilience and Disaster Recovery
+        - Observability and Diagnostics
+        - Security and Governance
+        - Integrations and Ecosystem
+        - Cost and Usage Management
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Brief description of what the skill does and when to use it (max 1024 characters)
+      placeholder: "Identifies and diagnoses slow queries using CockroachDB's built-in observability tools. Use when query performance degrades or users report slow response times."
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and Boundaries
+      description: What is explicitly included and excluded from this skill?
+      placeholder: |
+        **Included:**
+        - Identifying slow queries from system tables
+        - Analyzing query execution plans
+        - Recommending index improvements
+
+        **Excluded:**
+        - Automatic index creation
+        - Schema redesign
+        - Hardware capacity planning
+    validations:
+      required: true
+
+  - type: textarea
+    id: inputs-outputs
+    attributes:
+      label: Expected Inputs and Outputs
+      description: What information does this skill need, and what does it provide?
+      placeholder: |
+        **Inputs:**
+        - Access to CockroachDB DB Console or SQL shell
+        - Query performance metrics
+        - Current schema information
+
+        **Outputs:**
+        - List of slow queries ranked by impact
+        - Execution plan analysis
+        - Specific optimization recommendations
+    validations:
+      required: true
+
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety Considerations
+      description: Are there any risks or safety guardrails needed for this skill?
+      placeholder: |
+        - Avoid running EXPLAIN ANALYZE on production write queries
+        - Consider cluster load when collecting diagnostics
+        - Recommend testing index changes in staging first
+
+  - type: textarea
+    id: references
+    attributes:
+      label: CockroachDB Documentation References
+      description: Links to relevant official CockroachDB documentation
+      placeholder: |
+        - https://www.cockroachlabs.com/docs/stable/query-performance-best-practices.html
+        - https://www.cockroachlabs.com/docs/stable/explain.html
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case and Motivation
+      description: Why is this skill needed? Who will benefit from it?
+      placeholder: |
+        This skill is needed because query performance issues are one of the most common operational challenges.
+        Database operators and SREs need structured guidance to diagnose and resolve slow queries efficiently.
+
+        This skill would help:
+        - New CockroachDB users unfamiliar with performance debugging
+        - SREs responding to production incidents
+        - Developers optimizing application queries
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Proposal Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues and this skill has not been proposed yet
+          required: true
+        - label: I have reviewed the Agent Skills Specification (https://agentskills.io/specification)
+          required: true
+        - label: I have read the contributing guidelines (CONTRIBUTING.md)
+          required: true
+        - label: The skill name follows naming conventions (lowercase, hyphens, no reserved words)
+          required: true

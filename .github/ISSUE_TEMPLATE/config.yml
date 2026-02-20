@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: General Questions
+    url: https://github.com/cockroachlabs/cockroachdb-skills/discussions
+    about: Ask questions or discuss ideas that don't fit the templates above
+  - name: CockroachDB Documentation
+    url: https://www.cockroachlabs.com/docs/
+    about: Official CockroachDB documentation
+  - name: CockroachDB Community
+    url: https://www.cockroachlabs.com/community/
+    about: Join the CockroachDB community

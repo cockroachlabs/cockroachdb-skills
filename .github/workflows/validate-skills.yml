@@ -1,0 +1,48 @@
+name: Validate Skills
+
+on:
+  pull_request:
+    paths:
+      - 'skills/**'
+      - 'scripts/**'
+      - '.github/workflows/validate-skills.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'skills/**'
+      - 'scripts/**'
+      - '.github/workflows/validate-skills.yml'
+
+jobs:
+  validate:
+    name: Validate Agent Skills Specification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r scripts/requirements.txt
+
+      - name: Run validation
+        run: |
+          python scripts/validate-spec.py skills/ --github
+
+      - name: Validation summary
+        if: always()
+        run: |
+          if [ $? -eq 0 ]; then
+            echo "✓ All skills passed validation"
+          else
+            echo "✗ Validation failed - see errors above"
+            exit 1
+          fi

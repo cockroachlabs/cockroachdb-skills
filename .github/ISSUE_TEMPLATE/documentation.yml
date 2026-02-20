@@ -1,0 +1,64 @@
+name: Documentation Improvement
+description: Suggest improvements to repository documentation
+title: "[Docs] "
+labels: ["documentation", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve our documentation! Please describe what needs to be improved.
+
+  - type: dropdown
+    id: documentation-type
+    attributes:
+      label: Documentation Type
+      description: What documentation needs improvement?
+      options:
+        - README.md
+        - CONTRIBUTING.md
+        - Skill documentation (SKILL.md)
+        - Issue/PR templates
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-issue
+    attributes:
+      label: What's Unclear or Incorrect?
+      description: What about the current documentation is unclear, incorrect, or missing?
+      placeholder: "The CONTRIBUTING.md doesn't explain how to choose between domains when a skill could fit in multiple places..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-changes
+    attributes:
+      label: Proposed Changes
+      description: How would you improve this documentation?
+      placeholder: |
+        Add a decision tree or flowchart to help contributors choose the right domain:
+
+        1. If the skill is primarily about migration → Onboarding and Migrations
+        2. If the skill is primarily about performance → Performance and Scaling
+        ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-sections
+    attributes:
+      label: Affected Sections
+      description: Which specific sections or files need updating?
+      placeholder: |
+        - CONTRIBUTING.md, "Domain Structure" section
+        - README.md, "Skill Domains" section (for consistency)
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other relevant information
+      placeholder: "This confusion came up when I was trying to propose a skill for migration performance optimization..."
