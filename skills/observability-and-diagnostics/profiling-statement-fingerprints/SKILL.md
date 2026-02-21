@@ -23,6 +23,8 @@ Analyzes historical statement performance patterns using aggregated SQL statisti
 - SQL-only historical analysis without DB Console access
 
 **For immediate incident response:** Use [triaging-live-sql-activity](../triaging-live-sql-activity/SKILL.md) to triage currently running queries and cancel runaway work.
+**For transaction-level analysis:** Use [profiling-transaction-fingerprints](../profiling-transaction-fingerprints/SKILL.md) to analyze retry patterns, commit latency, and statement composition at the transaction boundary.
+**For background job monitoring:** Use [monitoring-background-jobs](../monitoring-background-jobs/SKILL.md) for long-running schema changes and automatic jobs excluded from statement statistics.
 
 ## Prerequisites
 
@@ -324,3 +326,4 @@ LIMIT 20;
 
 **Related skills:**
 - [triaging-live-sql-activity](../triaging-live-sql-activity/SKILL.md) - For immediate triage of currently running queries
+- [profiling-transaction-fingerprints](../profiling-transaction-fingerprints/SKILL.md) - For transaction-level analysis including retry patterns and commit latency

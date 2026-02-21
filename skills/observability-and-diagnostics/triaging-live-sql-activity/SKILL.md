@@ -21,6 +21,8 @@ Diagnoses live cluster performance issues by identifying currently active long-r
 - Need to generate SQL to cancel problematic sessions/queries
 
 **For historical performance analysis:** Use [profiling-statement-fingerprints](../profiling-statement-fingerprints/SKILL.md) to analyze query patterns over time, identify slow fingerprints, and investigate trends without needing live queries.
+**For transaction-level analysis:** Use [profiling-transaction-fingerprints](../profiling-transaction-fingerprints/SKILL.md) to analyze historical transaction retry patterns, commit latency trends, and statement composition.
+**For background job monitoring:** Use [monitoring-background-jobs](../monitoring-background-jobs/SKILL.md) to monitor schema changes, backups, and automatic jobs that don't appear in SHOW CLUSTER STATEMENTS.
 
 ## Prerequisites
 
@@ -383,6 +385,7 @@ See [permissions reference](references/permissions.md) for granting these privil
 
 **Related skills:**
 - [profiling-statement-fingerprints](../profiling-statement-fingerprints/SKILL.md) - For historical performance pattern analysis and trend identification
+- [profiling-transaction-fingerprints](../profiling-transaction-fingerprints/SKILL.md) - For historical transaction-level analysis including retry storms and commit latency
 
 **Official CockroachDB Documentation:**
 - [SHOW STATEMENTS](https://www.cockroachlabs.com/docs/stable/show-statements.html)

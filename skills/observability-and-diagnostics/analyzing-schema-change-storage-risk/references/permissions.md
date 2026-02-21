@@ -1,0 +1,1 @@
+../../analyzing-range-distribution/references/permissions.md
