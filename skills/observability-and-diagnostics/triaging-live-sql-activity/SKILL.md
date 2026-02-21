@@ -20,6 +20,8 @@ Diagnoses live cluster performance issues by identifying currently active long-r
 - Require immediate triage without DB Console access
 - Need to generate SQL to cancel problematic sessions/queries
 
+**For historical performance analysis:** Use [profiling-statement-fingerprints](../profiling-statement-fingerprints/SKILL.md) to analyze query patterns over time, identify slow fingerprints, and investigate trends without needing live queries.
+
 ## Prerequisites
 
 **Required SQL access:**
@@ -378,6 +380,9 @@ See [permissions reference](references/permissions.md) for granting these privil
 **Skill references:**
 - [SQL query variations and examples](references/sql-queries.md)
 - [RBAC and privilege setup](references/permissions.md)
+
+**Related skills:**
+- [profiling-statement-fingerprints](../profiling-statement-fingerprints/SKILL.md) - For historical performance pattern analysis and trend identification
 
 **Official CockroachDB Documentation:**
 - [SHOW STATEMENTS](https://www.cockroachlabs.com/docs/stable/show-statements.html)
