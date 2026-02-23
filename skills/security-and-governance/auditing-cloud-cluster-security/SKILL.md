@@ -23,15 +23,24 @@ Assesses the security posture of a CockroachDB Cloud cluster by examining networ
 
 ## Prerequisites
 
-- **ccloud CLI** installed and authenticated (`ccloud auth login`) — Cloud clusters only
-- **cockroach sql** with a connection string to the target cluster
-- **Privileges:** admin role or `VIEWACTIVITY` system privilege for full visibility
+**Tools:**
 
-**Verify access:**
-```bash
-ccloud auth whoami  # Cloud only
-cockroach sql --url "<connection-string>" -e "SELECT current_user();"
-```
+| Tool | Cloud | Self-Hosted | Purpose |
+|------|-------|-------------|---------|
+| `ccloud` CLI | Required | N/A | Cluster metadata, network config, CMEK |
+| `cockroach sql` | Required | Required | SQL security checks |
+| `openssl` (v3+) | Recommended | Recommended | TLS/PQC cipher probing (`-starttls postgres`) |
+| `sslyze` | Optional | Optional | Comprehensive TLS enumeration (`--starttls postgres`) |
+
+**Credentials:**
+
+| Credential | Cloud | Self-Hosted |
+|---|---|---|
+| `ccloud auth login` session | Required | N/A |
+| SQL connection string | Required (from `ccloud cluster sql --url`) | Required (user provides) |
+| DB username/password | Required (admin or VIEWACTIVITY) | Required (admin or VIEWACTIVITY) |
+| TLS certificates directory | N/A (managed) | Required for cert expiry checks |
+| CA certificate file | N/A | Required for `openssl` TLS probing |
 
 See [permissions reference](references/permissions.md) for detailed privilege requirements.
 
@@ -45,11 +54,47 @@ See [permissions reference](references/permissions.md) for detailed privilege re
 | Encryption | ccloud + sql | CMEK status, TLS settings |
 | Audit Logging | sql | Audit log config, session logging |
 | Backup & Recovery | ccloud + sql | Managed backup status, self-managed backup schedules |
-| Cryptographic Posture | sql + openssl | TLS version, PQC hybrid cipher support, encryption key size |
+| Cryptographic Posture | sql + openssl + sslyze | TLS version, PQC hybrid cipher support, encryption key size |
 | Cluster Context | ccloud + user input | Deployment model, environment, compliance, data sensitivity |
 | Cluster Configuration | ccloud | Version, plan, regions |
 
 ## Assessment Workflow
+
+### Step 0: Verify Prerequisites
+
+Run the following checks to determine which tools are available. The audit proceeds regardless — missing tools degrade specific checks rather than blocking the audit.
+
+**Cloud clusters:**
+```bash
+# Verify ccloud authentication
+ccloud auth whoami
+
+# Verify cluster access
+ccloud cluster list -o json
+```
+
+**Both deployment models:**
+```bash
+# Verify SQL connectivity
+cockroach sql --url "<connection-string>" -e "SELECT current_user();"
+
+# Check openssl version (v3+ recommended for PQC probes)
+openssl version
+
+# Check sslyze availability
+which sslyze && sslyze --version
+```
+
+**Report tool availability before proceeding:**
+
+| Tool | Status | Impact if Missing |
+|------|--------|-------------------|
+| `ccloud` | Available / Missing | Network, CMEK, and managed backup checks skipped (Cloud only) |
+| `cockroach sql` | Available / Missing | **All SQL-based checks skipped** — audit severely limited |
+| `openssl` (v3+) | Available / Missing | TLS cipher and PQC probing degraded |
+| `sslyze` | Available / Missing | Comprehensive TLS enumeration unavailable; falls back to `openssl` |
+
+If `cockroach sql` is unavailable, warn the user that the audit will be limited to `ccloud`-only checks and recommend resolving connectivity before continuing. For missing optional tools (`openssl`, `sslyze`), note which checks will produce incomplete results and proceed.
 
 ### Step 1: Gather Cluster Metadata and Confirm Audit Context
 
@@ -272,11 +317,20 @@ openssl x509 -in <certs-dir>/node.crt -noout -enddate
 SHOW CLUSTER SETTING server.tls.min_version;
 ```
 ```bash
-openssl s_client -connect <host>:26257 -tls1_3 -CAfile ca.crt < /dev/null 2>&1 | grep -E "Protocol|Cipher"
+# Primary: sslyze with STARTTLS postgres (if available)
+sslyze <host>:26257 --starttls postgres
+
+# Supplementary: openssl with STARTTLS postgres
+openssl s_client -connect <host>:26257 -starttls postgres -showcerts -tlsextdebug 2>&1
+
+# PQC probe: offer ML-KEM hybrid, check if server accepts
+openssl s_client -connect <host>:26257 -starttls postgres -groups X25519MLKEM768:x25519 2>&1
 ```
 - **INFO** — TLS version (should be TLS 1.3; note if TLS 1.2 only)
-- **INFO** — PQC hybrid cipher support (e.g., X25519Kyber768) — emerging, not yet a FAIL condition
+- **INFO** — PQC hybrid cipher support (e.g., X25519MLKEM768) — emerging, not yet a FAIL condition
 - **INFO** — Encryption key size (check for AES-256; note if AES-128)
+
+> **Note:** CockroachDB uses PostgreSQL wire protocol, so `openssl s_client` requires `-starttls postgres` to negotiate TLS correctly. Without this flag, the connection will fail. `sslyze` similarly requires `--starttls postgres`.
 
 ### Step 7: Check Audit Logging
 
