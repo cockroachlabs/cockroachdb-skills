@@ -38,9 +38,26 @@ ccloud cluster info <cluster-name> -o json
 
 See [ccloud commands reference](references/ccloud-commands.md) for full command syntax.
 
+## Configuration Decisions
+
+Before proceeding, determine which connectivity types and cloud provider apply to the user's environment. Ask which options are relevant, then follow only the corresponding sections below.
+
+**Decision 1 — Connectivity type(s) needed:**
+- **Ingress private endpoints:** Applications connect to CockroachDB over a private network path (AWS PrivateLink, GCP Private Service Connect, Azure Private Link). Most common use case.
+- **Egress private endpoints:** CockroachDB connects outbound to external services (e.g., Confluent Kafka for CDC) over a private path.
+- **VPC peering:** Direct network connection between the application VPC and the CockroachDB Cloud VPC. Requires Advanced plan.
+- **Combination:** Multiple connectivity types can be configured together.
+
+**Decision 2 — Cloud provider:**
+- **AWS:** Use AWS PrivateLink for ingress, AWS VPC peering for peering.
+- **GCP:** Use GCP Private Service Connect for ingress, GCP VPC peering for peering.
+- **Azure:** Use Azure Private Link for ingress. VPC peering is not available for Azure.
+
 ## Steps
 
 ### Part 1: Ingress Private Endpoints
+
+> Follow this part only if the user selected **Ingress private endpoints** in Decision 1. Follow only the subsection (1.2, 1.3, or 1.4) matching the user's cloud provider from Decision 2.
 
 Private endpoints allow applications in your VPC to connect to CockroachDB Cloud without traversing the public internet.
 
@@ -126,6 +143,8 @@ See [cloud provider setup reference](references/cloud-provider-setup.md) for det
 
 ### Part 2: Egress Private Endpoints
 
+> Skip this part if the user did not select **Egress private endpoints** in Decision 1.
+
 Egress private endpoints allow CockroachDB Cloud to connect to external services (e.g., Confluent Kafka for CDC) over a private network path.
 
 #### 2.1 Create an Egress Private Endpoint
@@ -173,6 +192,8 @@ CREATE CHANGEFEED FOR TABLE orders
 ```
 
 ### Part 3: VPC Peering
+
+> Skip this part if the user did not select **VPC peering** in Decision 1. Follow only the commands matching the user's cloud provider (AWS or GCP) from Decision 2. Azure does not support VPC peering.
 
 VPC peering creates a direct network connection between your VPC and the CockroachDB Cloud VPC.
 

@@ -42,9 +42,21 @@ ccloud cluster list
 cockroach cert list --certs-dir=<certs-directory>
 ```
 
+## Configuration Decisions
+
+Before proceeding, determine the user's deployment model. Ask which option applies, then follow only the relevant sections below.
+
+**Decision 1 — Deployment model:**
+- **CockroachDB Cloud:** TLS is always on and the cluster CA is managed by Cockroach Labs. Follow Part 1 for CA download, client certificate auth, and Cloud certificate rotation.
+- **Self-hosted:** Full manual certificate lifecycle management (CA, node, and client certificates). Follow Part 2 for certificate creation, rotation, and management.
+
+Parts 3 (Troubleshooting) and 4 (mTLS for CDC) apply to both deployment models.
+
 ## Steps
 
 ### Part 1: CockroachDB Cloud TLS
+
+> Follow this part if the user selected **CockroachDB Cloud** in Decision 1.
 
 CockroachDB Cloud enforces TLS on all connections. The cluster CA certificate is managed by Cockroach Labs.
 
@@ -124,6 +136,8 @@ Client certificates should be rotated before expiry. The cluster CA certificate 
 5. Remove the old Client CA after all clients have migrated
 
 ### Part 2: Self-Hosted Certificate Management
+
+> Follow this part if the user selected **Self-hosted** in Decision 1.
 
 Self-hosted CockroachDB requires manual certificate lifecycle management for the CA, node, and client certificates.
 

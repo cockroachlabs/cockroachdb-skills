@@ -36,6 +36,19 @@ ccloud cluster info <cluster-name> -o json
 # Look for "plan": "ADVANCED"
 ```
 
+## Configuration Decisions
+
+Before proceeding, determine which export destinations apply to the user's environment. Ask which options are relevant, then follow only the corresponding sections below.
+
+**Decision 1 — Log export destination:**
+- **AWS CloudWatch:** Use when the cluster runs on AWS and logs should go to CloudWatch Logs. Requires IAM cross-account role setup.
+- **GCP Cloud Logging:** Use when the cluster runs on GCP. Requires a service account with Logs Writer role.
+
+**Decision 2 — Metric export destination:**
+- **CloudWatch:** Use when metrics should go to AWS CloudWatch. Requires IAM role with `cloudwatch:PutMetricData` permission.
+- **Datadog:** Use when metrics should go to Datadog. Requires a Datadog API key and site.
+- **Skip:** No metric export needed at this time.
+
 ## Steps
 
 ### 1. Check Current Log Export Configuration
@@ -47,6 +60,8 @@ ccloud cluster info <cluster-name> -o json
 ```
 
 ### 2. Set Up Log Export to AWS CloudWatch
+
+> Follow this section only if the user selected **AWS CloudWatch** in Decision 1. Skip to Step 3 if using GCP Cloud Logging.
 
 #### 2.1 Create a CloudWatch Log Group
 
@@ -85,6 +100,8 @@ ccloud cluster log-export create <cluster-id> \
 
 ### 3. Set Up Log Export to GCP Cloud Logging
 
+> Follow this section only if the user selected **GCP Cloud Logging** in Decision 1. Skip if using AWS CloudWatch.
+
 #### 3.1 Enable Cloud Logging API
 
 ```bash
@@ -110,6 +127,8 @@ ccloud cluster log-export create <cluster-id> \
 ```
 
 ### 4. Configure Metric Export
+
+> Skip this section if the user selected **Skip** in Decision 2. Follow only the relevant subsection (4.1 or 4.2) based on the selected metric export destination.
 
 Metric export sends CockroachDB performance metrics to CloudWatch or Datadog.
 

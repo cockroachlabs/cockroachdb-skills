@@ -37,6 +37,15 @@ ccloud cluster info <cluster-name> -o json
 # Look for "plan": "ADVANCED" and Advanced Security Add-on status
 ```
 
+## Configuration Decisions
+
+Before proceeding, determine which cloud provider KMS the user will use. Ask which option applies to their environment, then follow only the corresponding subsection in Step 2.
+
+**Decision 1 — Cloud provider KMS:**
+- **AWS KMS:** Use when the CockroachDB Cloud cluster runs on AWS. Requires a symmetric encryption key in the same region as the cluster.
+- **GCP Cloud KMS:** Use when the cluster runs on GCP. Requires a key ring and key in the same region.
+- **Azure Key Vault:** Use when the cluster runs on Azure. Requires a Key Vault with a key in the same region.
+
 ## Steps
 
 ### 1. Verify Plan and Add-on Eligibility
@@ -52,6 +61,8 @@ ccloud cluster info <cluster-name> -o json
 **If Advanced plan without Advanced Security Add-on:** Enable the add-on in the Cloud Console before proceeding.
 
 ### 2. Create a KMS Key in Your Cloud Provider
+
+Follow only the subsection for the user's cloud provider (selected in Configuration Decisions above).
 
 #### AWS KMS
 
