@@ -121,6 +121,102 @@ Google Workspace does not natively support SCIM for third-party apps. Options:
 - Use Google Cloud Identity with an OIDC/SCIM adapter
 - Manage users manually or via API automation
 
+## Database SSO — LDAP/AD Configuration
+
+### Active Directory Example
+
+Active Directory uses `sAMAccountName` as the login attribute and organizes users in OUs.
+
+```sql
+-- Configure HBA for Active Directory authentication
+SET CLUSTER SETTING server.host_based_authentication.configuration = '
+host all all all ldap ldapserver=ad.corp.example.com ldapport=636 ldaptls=1 ldapbasedn="ou=Users,dc=corp,dc=example,dc=com" ldapsearchattribute=sAMAccountName ldapbinddn="cn=crdb-svc,ou=ServiceAccounts,dc=corp,dc=example,dc=com" ldapbindpasswd="<service-account-password>"
+host all all all password
+';
+```
+
+Notes:
+- `sAMAccountName` maps the Windows login name (e.g., `jsmith`) to the SQL username
+- The `ldapbinddn` service account needs only **Read** permissions on the user OU
+- Use `ldaptls=1` with port 636 for LDAPS (required for production AD environments)
+
+### OpenLDAP Example
+
+OpenLDAP typically uses `uid` as the login attribute.
+
+```sql
+-- Configure HBA for OpenLDAP authentication
+SET CLUSTER SETTING server.host_based_authentication.configuration = '
+host all all all ldap ldapserver=ldap.example.com ldapport=636 ldaptls=1 ldapbasedn="ou=People,dc=example,dc=com" ldapsearchattribute=uid ldapbinddn="cn=readonly,dc=example,dc=com" ldapbindpasswd="<bind-password>"
+host all all all password
+';
+```
+
+### LDAP Group-to-Role Mapping
+
+LDAP group mapping (v24.3+) assigns CockroachDB SQL roles based on LDAP/AD group membership. The LDAP group name (CN) is mapped directly to a SQL role name — the role must already exist in CockroachDB.
+
+#### Active Directory Group Mapping
+
+```sql
+-- Enable LDAP authorization
+SET CLUSTER SETTING server.ldap_authorization.enabled = true;
+
+-- Search for groups where the user is a member
+-- AD uses 'member' attribute with full user DN
+SET CLUSTER SETTING server.ldap_authorization.group_list_filter = '(&(objectClass=group)(member={{.User.DN}}))';
+
+-- Base DN for group search
+SET CLUSTER SETTING server.ldap_authorization.group_search_base_dn = 'ou=Groups,dc=corp,dc=example,dc=com';
+
+-- Use the group's CN as the SQL role name
+SET CLUSTER SETTING server.ldap_authorization.group_search_attribute = 'cn';
+```
+
+Example: If AD user `jsmith` is a member of the `db_admins` group, they receive the `db_admins` SQL role. Create the role first:
+
+```sql
+CREATE ROLE IF NOT EXISTS db_admins;
+GRANT admin TO db_admins;
+```
+
+#### OpenLDAP Group Mapping
+
+```sql
+SET CLUSTER SETTING server.ldap_authorization.enabled = true;
+
+-- OpenLDAP uses 'memberUid' with the uid value (not full DN)
+SET CLUSTER SETTING server.ldap_authorization.group_list_filter = '(&(objectClass=posixGroup)(memberUid={{.User.Username}}))';
+
+SET CLUSTER SETTING server.ldap_authorization.group_search_base_dn = 'ou=Groups,dc=example,dc=com';
+SET CLUSTER SETTING server.ldap_authorization.group_search_attribute = 'cn';
+```
+
+### LDAPS (TLS) Configuration
+
+LDAPS encrypts all traffic between CockroachDB and the LDAP server. This is required for production environments to prevent credential exposure.
+
+**Standard LDAPS (port 636):**
+
+```sql
+SET CLUSTER SETTING server.host_based_authentication.configuration = '
+host all all all ldap ldapserver=ldap.example.com ldapport=636 ldaptls=1 ldapbasedn="dc=example,dc=com" ldapsearchattribute=uid ldapbinddn="cn=readonly,dc=example,dc=com" ldapbindpasswd="<bind-password>"
+host all all all password
+';
+```
+
+**Verifying LDAPS connectivity** (run from a CockroachDB node):
+
+```bash
+# Test LDAPS connection and check certificate
+openssl s_client -connect ldap.example.com:636 -showcerts </dev/null
+
+# Test LDAP search over TLS
+ldapsearch -H ldaps://ldap.example.com:636 -D "cn=readonly,dc=example,dc=com" -W -b "dc=example,dc=com" "(uid=testuser)"
+```
+
+If the LDAP server uses a private CA, the CA certificate must be in the system trust store on all CockroachDB nodes.
+
 ## Identity Mapping Examples
 
 ### Map Email to SQL Username
