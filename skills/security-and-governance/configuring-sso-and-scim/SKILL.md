@@ -213,6 +213,74 @@ host all all all password
 SELECT username FROM [SHOW USERS] WHERE username = '<expected-username>';
 ```
 
+## Troubleshooting
+
+### SSO Lockout Recovery
+
+If SSO is enforced and the IdP becomes unavailable or misconfigured:
+
+1. **Use the break-glass account:** Log in with the pre-configured password-based admin account
+2. **Disable SSO enforcement:** Navigate to Organization Settings > Authentication and disable "Require SSO"
+3. **If no break-glass account exists:** Contact CockroachDB Cloud support to disable SSO enforcement for your organization
+
+**Prevention:** Always create and test a break-glass admin account before enforcing SSO.
+
+### JWT Authentication Errors
+
+**"ERROR: JWT authentication: invalid token"**
+- Verify the OIDC provider URL is correct and accessible
+- Check that the JWT token has not expired
+- Verify the `claim_json_key` and `principal_regex` settings match your IdP's token format
+- Inspect the token contents: `echo '<token>' | cut -d. -f2 | base64 -d | jq .`
+
+**"ERROR: JWT authentication: issuer not configured"**
+- The `server.oidc_authentication.provider_url` may have changed or been reset
+- Re-apply the OIDC cluster settings (see Part 2 above)
+
+### OIDC Principal Regex Issues
+
+**"OIDC: unable to match principal"**
+- The `principal_regex` does not match the claim value from the token
+- Test the regex against the actual claim value:
+
+```sql
+-- Check current regex
+SHOW CLUSTER SETTING server.oidc_authentication.principal_regex;
+
+-- Common patterns:
+-- Email -> username (strip domain): '^([^@]+)'
+-- Full email as username: '^(.+)$'
+-- Domain prefix: '^([^@]+)@example\.com$'
+```
+
+**Complex regex not accepted:**
+- CockroachDB uses Go's `regexp` syntax, which differs from PCRE
+- Lookaheads and lookbehinds are not supported
+- Test the regex at https://regex101.com/ with the "Golang" flavor
+
+### Azure AD / Entra ID Specific Issues
+
+**Token audience mismatch:**
+- Azure AD tokens include an `aud` claim that must match the `client_id`
+- Ensure the App Registration's Application ID URI matches if using a custom audience
+- For standard setup, the `client_id` in CockroachDB settings should match the Azure AD Application (client) ID
+
+**Multi-tenant vs single-tenant:**
+- For single-tenant: use `https://login.microsoftonline.com/<tenant-id>/v2.0` as the provider URL
+- For multi-tenant: use `https://login.microsoftonline.com/common/v2.0` (requires additional validation)
+
+**Group claims for role mapping:**
+- Azure AD can include group memberships in the JWT token
+- Enable "Groups claim" in the App Registration > Token Configuration
+- Map Azure AD groups to CockroachDB roles via identity mapping
+
+### SSO + Roles Interaction
+
+**"SSO User Roles: UI does not show roles inherited from user groups"**
+- Cloud Console roles assigned via SCIM groups may not display in the individual user's role list
+- Check the group assignments: the user's effective role is the union of direct and group-inherited roles
+- Verify in SCIM logs that group membership changes are syncing correctly
+
 ## Safety Considerations
 
 **SSO misconfiguration can lock out users.** If SSO is enforced and the IdP is down or misconfigured, no one can log in.
@@ -274,6 +342,7 @@ SET CLUSTER SETTING server.identity_map.configuration = '';
 **Related skills:**
 - [auditing-cloud-cluster-security](../auditing-cloud-cluster-security/SKILL.md) — Run a full security posture audit
 - [enforcing-password-policies](../enforcing-password-policies/SKILL.md) — Strengthen password policies as an alternative to SSO
+- [managing-tls-certificates](../managing-tls-certificates/SKILL.md) — Certificate-based authentication as an alternative to SSO
 
 **Official CockroachDB Documentation:**
 - [Cloud Console SSO](https://www.cockroachlabs.com/docs/cockroachcloud/cloud-org-sso.html)
@@ -281,3 +350,4 @@ SET CLUSTER SETTING server.identity_map.configuration = '';
 - [SCIM Provisioning](https://www.cockroachlabs.com/docs/cockroachcloud/configure-scim.html)
 - [Cluster Settings](https://www.cockroachlabs.com/docs/stable/cluster-settings.html)
 - [HBA Configuration](https://www.cockroachlabs.com/docs/stable/security-reference/authentication.html)
+- [JWT Authentication](https://www.cockroachlabs.com/docs/stable/sso-sql.html)

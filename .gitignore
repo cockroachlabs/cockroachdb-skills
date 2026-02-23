@@ -78,3 +78,6 @@ coverage/
 # Backup Files
 *.bak
 *.backup
+
+# Audit report run logs (local-only, not committed)
+**/reports/

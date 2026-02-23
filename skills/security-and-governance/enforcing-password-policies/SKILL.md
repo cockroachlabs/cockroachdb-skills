@@ -132,6 +132,84 @@ Password policy changes only apply to new passwords. Existing users retain their
 ALTER USER <username> WITH PASSWORD '<new-strong-password>';
 ```
 
+### 7. Manage Password Changes and Rotation
+
+#### User Self-Service Password Changes
+
+SQL users can change their own passwords:
+
+```sql
+-- User changes their own password
+ALTER USER current_user() WITH PASSWORD '<new-password>';
+```
+
+**Note:** Non-admin users can change their own passwords by default. If users report they cannot change their password, verify they are connected as the correct user and that there are no HBA rules blocking password-based authentication.
+
+#### Administrative Password Reset
+
+```sql
+-- Admin resets another user's password
+ALTER USER <username> WITH PASSWORD '<new-strong-password>';
+
+-- Verify the user exists before resetting
+SELECT username FROM [SHOW USERS] WHERE username = '<username>';
+```
+
+#### Cloud Console vs SQL Passwords
+
+CockroachDB Cloud has two separate password domains:
+- **Cloud Console password** — Managed via Cloud Console UI or SSO. Reset via the Cloud Console login page "Forgot password" flow.
+- **SQL user password** — Managed via SQL `ALTER USER`. Independent of the Cloud Console password.
+
+Changing one does not affect the other. Users must manage both if they use both access methods.
+
+#### Password Rotation Best Practices
+
+- Rotate service account passwords on a regular schedule (e.g., every 90 days)
+- Use certificate-based authentication for service accounts to avoid password rotation entirely
+- Coordinate password rotation with application deployment cycles to avoid downtime
+- After changing a password, verify the application can connect with the new credentials before decommissioning the old password
+
+### 8. Troubleshoot Common Password Errors
+
+#### "password too short"
+
+The password does not meet the `min_password_length` setting.
+
+```sql
+-- Check the current minimum
+SHOW CLUSTER SETTING server.user_login.min_password_length;
+```
+
+Fix: Use a longer password that meets or exceeds the minimum length.
+
+#### "bcrypt password hash too long"
+
+The password exceeds the bcrypt input limit of 72 bytes. This can occur with very long passwords or multi-byte Unicode characters.
+
+```sql
+-- Workaround: use a shorter password (under 72 bytes)
+ALTER USER <username> WITH PASSWORD '<shorter-password>';
+```
+
+This is a bcrypt limitation, not a CockroachDB-specific issue.
+
+#### Authentication failures after password change
+
+If users report authentication failures immediately after changing their password:
+
+1. Verify the password was set correctly (no copy-paste whitespace)
+2. Check for connection pool caching of old credentials — restart the connection pool
+3. Verify the HBA configuration allows password authentication:
+   ```sql
+   SHOW CLUSTER SETTING server.host_based_authentication.configuration;
+   ```
+4. Check login throttling delays if there were failed attempts:
+   ```sql
+   SHOW CLUSTER SETTING server.user_login.password.min_delay;
+   SHOW CLUSTER SETTING server.user_login.password.max_delay;
+   ```
+
 ## Safety Considerations
 
 - **New passwords only:** Changing `min_password_length` does not invalidate existing passwords. Users with short passwords can still log in until they change their password.
@@ -161,9 +239,11 @@ RESET CLUSTER SETTING server.user_login.password.max_delay;
 **Related skills:**
 - [auditing-cloud-cluster-security](../auditing-cloud-cluster-security/SKILL.md) — Run a full security posture audit
 - [configuring-sso-and-scim](../configuring-sso-and-scim/SKILL.md) — Use SSO to eliminate password-based authentication
+- [managing-tls-certificates](../managing-tls-certificates/SKILL.md) — Use certificate-based authentication instead of passwords
 
 **Official CockroachDB Documentation:**
 - [Cluster Settings Reference](https://www.cockroachlabs.com/docs/stable/cluster-settings.html)
 - [CREATE USER](https://www.cockroachlabs.com/docs/stable/create-user.html)
 - [ALTER USER](https://www.cockroachlabs.com/docs/stable/alter-user.html)
 - [Security Overview](https://www.cockroachlabs.com/docs/stable/security-reference/security-overview.html)
+- [Authentication](https://www.cockroachlabs.com/docs/stable/authentication.html)

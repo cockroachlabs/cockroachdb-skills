@@ -49,7 +49,15 @@ Review each entry. Flag any of these as overly permissive:
 
 See [ccloud commands reference](references/ccloud-commands.md) for full command syntax.
 
-### 2. Identify Required CIDR Ranges
+### 2. Understand Allowlist Limits
+
+CockroachDB Cloud clusters have a maximum number of IP allowlist entries per cluster. If you need more entries than the limit allows:
+
+- **Consolidate entries:** Use broader CIDR ranges where security permits (e.g., combine several `/32` entries into a `/24`)
+- **Use private endpoints:** Switch to [private endpoints](../configuring-private-connectivity/SKILL.md) instead of allowlists for VPC-based access — private endpoints bypass the allowlist entirely
+- **Request a limit increase:** Contact CockroachDB Cloud support if consolidation and private endpoints are not sufficient
+
+### 3. Identify Required CIDR Ranges
 
 Before modifying the allowlist, document all legitimate access sources:
 
@@ -60,7 +68,7 @@ Before modifying the allowlist, document all legitimate access sources:
 | CI/CD runners | `192.0.2.0/28` | Yes | No |
 | Monitoring | `10.0.1.5/32` | Yes | No |
 
-### 3. Add Specific CIDR Entries
+### 4. Add Specific CIDR Entries
 
 ```bash
 # Add a specific CIDR range
@@ -94,7 +102,7 @@ ccloud cluster networking allowlist create <cluster-id> \
   --name "Developer workstation"
 ```
 
-### 4. Remove Overly Permissive Entries
+### 5. Remove Overly Permissive Entries
 
 ```bash
 # Delete the 0.0.0.0/0 entry (or other overly broad entries)
@@ -104,7 +112,7 @@ ccloud cluster networking allowlist delete <cluster-id> \
 
 **Important:** Only remove `0.0.0.0/0` after confirming your specific CIDR entries are in place and tested.
 
-### 5. Verify the Updated Allowlist
+### 6. Verify the Updated Allowlist
 
 ```bash
 # Confirm the final allowlist
@@ -160,6 +168,7 @@ ccloud cluster networking allowlist create <cluster-id> \
 
 **Related skills:**
 - [auditing-cloud-cluster-security](../auditing-cloud-cluster-security/SKILL.md) — Run a full security posture audit
+- [configuring-private-connectivity](../configuring-private-connectivity/SKILL.md) — Private endpoints as an alternative to IP allowlists
 
 **Official CockroachDB Documentation:**
 - [Network Authorization](https://www.cockroachlabs.com/docs/cockroachcloud/network-authorization.html)

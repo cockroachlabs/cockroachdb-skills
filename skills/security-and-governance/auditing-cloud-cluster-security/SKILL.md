@@ -226,6 +226,16 @@ ccloud cluster info <cluster-name> -o json
 
 ## Report Format
 
+Save each audit report to the `reports/` directory (gitignored, local-only) with the naming convention:
+
+```
+reports/security-audit-<cluster-name>-<YYYY-MM-DD>-<sequence>.md
+```
+
+Example: `reports/security-audit-prod-east-2026-02-23-001.md`
+
+The `reports/` directory is not committed to version control — it serves as a local log of audit runs for historical comparison and remediation tracking.
+
 Generate a markdown report with the following structure:
 
 ```
@@ -289,6 +299,10 @@ For each finding, the corresponding remediation skill can be used independently:
 | Audit logging disabled | [configuring-audit-logging](../configuring-audit-logging/SKILL.md) |
 | Excessive admin privileges | [hardening-user-privileges](../hardening-user-privileges/SKILL.md) |
 | Weak password policy | [enforcing-password-policies](../enforcing-password-policies/SKILL.md) |
+| TLS/certificate issues | [managing-tls-certificates](../managing-tls-certificates/SKILL.md) |
+| No private connectivity | [configuring-private-connectivity](../configuring-private-connectivity/SKILL.md) |
+| Log export not configured | [configuring-log-export](../configuring-log-export/SKILL.md) |
+| Compliance gaps | [preparing-compliance-documentation](../preparing-compliance-documentation/SKILL.md) |
 
 For each FAIL finding in the report, present two options:
 - **"Explain how to fix this"** — Provide step-by-step guidance from the remediation skill
@@ -311,6 +325,7 @@ For each FAIL finding in the report, present two options:
 ## References
 
 **Skill references:**
+- [Sample audit report](references/sample-report.md) — Example report with findings and remediation links
 - [SQL queries for security auditing](references/sql-queries.md)
 - [ccloud CLI commands](references/ccloud-commands.md)
 - [RBAC and privileges setup](references/permissions.md)
@@ -322,6 +337,10 @@ For each FAIL finding in the report, present two options:
 - [hardening-user-privileges](../hardening-user-privileges/SKILL.md) — RBAC tightening
 - [enforcing-password-policies](../enforcing-password-policies/SKILL.md) — Password strength enforcement
 - [configuring-sso-and-scim](../configuring-sso-and-scim/SKILL.md) — SSO and SCIM provisioning
+- [managing-tls-certificates](../managing-tls-certificates/SKILL.md) — TLS certificate management
+- [configuring-private-connectivity](../configuring-private-connectivity/SKILL.md) — Private endpoints and VPC peering
+- [configuring-log-export](../configuring-log-export/SKILL.md) — Log and metric export
+- [preparing-compliance-documentation](../preparing-compliance-documentation/SKILL.md) — Compliance readiness and documentation
 
 **Official CockroachDB Documentation:**
 - [CockroachDB Cloud Security Overview](https://www.cockroachlabs.com/docs/cockroachcloud/security-overview.html)
