@@ -1,6 +1,6 @@
 # Sample Security Audit Report
 
-This is a sample report generated from an audit of a CockroachDB Cloud staging cluster with intentionally insecure configuration. It demonstrates the expected output format, finding categories, and remediation links.
+This is a sample report generated from an audit of a CockroachDB Cloud development cluster with intentionally insecure configuration. It demonstrates the expected output format, finding categories, severity adjustments, and remediation links.
 
 Use this as a template when producing audit reports. Replace all values with actual findings from the target cluster.
 
@@ -14,21 +14,25 @@ Use this as a template when producing audit reports. Replace all values with act
 **CockroachDB Version:** v25.4.5
 **Cloud Provider:** AWS
 **Regions:** us-east-1
+**Deployment:** CockroachDB Cloud
+**Environment:** development
+**Compliance:** (none specified)
+**Data Sensitivity:** internal business data
 
 ## Summary
 
 | Status | Count |
 |--------|-------|
 | PASS   | 1     |
-| WARN   | 0     |
-| FAIL   | 8     |
+| WARN   | 1     |
+| FAIL   | 7     |
 | INFO   | 3     |
 
 ## Findings
 
 ### Network Security
 
-**[FAIL] IP allowlist includes 0.0.0.0/0 (open to all traffic)**
+**[WARN] IP allowlist includes 0.0.0.0/0 (open to all traffic)** *(downgraded from FAIL — development cluster)*
 
 The cluster's IP allowlist contains `0.0.0.0/0` ("Default - Allow all"), which permits SQL connections from any IPv4 address. This is the default for new clusters but should be replaced with specific CIDR ranges before production use.
 
@@ -201,7 +205,7 @@ Ordered by priority (highest risk first):
 
 | # | Finding | Severity | Remediation Skill | Quick Fix |
 |---|---------|----------|-------------------|-----------|
-| 1 | IP allowlist 0.0.0.0/0 | FAIL | [configuring-ip-allowlists](../../configuring-ip-allowlists/SKILL.md) | Add specific CIDRs, remove 0.0.0.0/0 |
+| 1 | IP allowlist 0.0.0.0/0 | WARN | [configuring-ip-allowlists](../../configuring-ip-allowlists/SKILL.md) | Add specific CIDRs, remove 0.0.0.0/0 |
 | 2 | 8 admin users | FAIL | [hardening-user-privileges](../../hardening-user-privileges/SKILL.md) | Create roles, revoke admin |
 | 3 | PUBLIC has SELECT | FAIL | [hardening-user-privileges](../../hardening-user-privileges/SKILL.md) | `REVOKE SELECT ... FROM public` |
 | 4 | Audit logging disabled | FAIL | [configuring-audit-logging](../../configuring-audit-logging/SKILL.md) | Enable admin + role-based audit |
