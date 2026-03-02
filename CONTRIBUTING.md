@@ -350,56 +350,61 @@ Getting started with CockroachDB and moving workloads into the system.
 - Initial cluster setup
 - PostgreSQL compatibility handling
 
-### 2. **Application Development**
+### 2. **Query and Schema Design**
+Designing schema and writing queries that are compliant to CockroachDB SQL dialect and follow CockroachDB best practices
+- Schema Design
+- Generating Queries 
+- Optimizing Queries
+
+### 3. **Application Development**
 Building applications that use CockroachDB effectively.
-- Schema design patterns
 - Transaction handling
 - ORM configuration
 - Connection pooling
 
-### 3. **Performance and Scaling**
+### 4. **Performance and Scaling**
 Optimizing query performance and scaling clusters.
 - Query optimization
 - Index tuning
 - Contention diagnosis
 - Throughput scaling
 
-### 4. **Operations and Lifecycle**
+### 5. **Operations and Lifecycle**
 Day-to-day cluster operations and version management.
 - Cluster upgrades
 - Node management
 - Configuration changes
 - Routine maintenance
 
-### 5. **Resilience and Disaster Recovery**
+### 6. **Resilience and Disaster Recovery**
 Ensuring high availability and preparing for failures.
 - Backup strategies
 - Restore procedures
 - Failover testing
 - RPO/RTO planning
 
-### 6. **Observability and Diagnostics**
+### 7. **Observability and Diagnostics**
 Monitoring, alerting, and diagnosing health issues.
 - Metrics interpretation
 - Alert configuration
 - Issue diagnosis
 - Performance troubleshooting
 
-### 7. **Security and Governance**
+### 8. **Security and Governance**
 Access control, compliance, and data protection.
 - RBAC configuration
 - Encryption setup
 - Audit logging
 - Compliance controls
 
-### 8. **Integrations and Ecosystem**
+### 9. **Integrations and Ecosystem**
 Connecting CockroachDB to external tools and platforms.
 - CDC/changefeed setup
 - Third-party integrations
 - Infrastructure-as-code
 - Monitoring integration
 
-### 9. **Cost and Usage Management**
+### 10. **Cost and Usage Management**
 Understanding and optimizing resource consumption.
 - Storage analysis
 - Compute optimization
