@@ -109,7 +109,7 @@ ALTER USER <username> WITH PASSWORD '<new-strong-password>';
 -- All non-role users who may have passwords
 SELECT username
 FROM [SHOW USERS]
-WHERE NOT is_role
+WHERE 'NOLOGIN' != ALL(options)
 ORDER BY username;
 ```
 

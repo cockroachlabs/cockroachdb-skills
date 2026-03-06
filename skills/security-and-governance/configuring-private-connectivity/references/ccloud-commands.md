@@ -1,14 +1,17 @@
-# ccloud CLI Commands for Private Connectivity
+# CLI and API Commands for Private Connectivity
 
-This reference provides ccloud CLI commands for managing private endpoints, VPC peering, and egress endpoints on CockroachDB Cloud clusters.
+This reference provides commands for managing private endpoints, VPC peering, and egress endpoints on CockroachDB Cloud clusters.
 
-## Private Endpoint Services
+> **Note:** The `ccloud` CLI currently only supports IP allowlist management under `networking`. Private endpoint and egress endpoint operations are performed via the **Cloud Console**, **Cloud API**, or **Terraform**. VPC peering commands shown below may require a newer version of `ccloud`.
+
+## Private Endpoint Services (Cloud API)
 
 ### List Private Endpoint Services
 
 ```bash
 # List available private endpoint services for a cluster
-ccloud cluster networking private-endpoint-service list <cluster-id> -o json
+curl "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-services" \
+  -H "Authorization: Bearer <api-key>"
 ```
 
 **Key fields to inspect:**
@@ -17,13 +20,16 @@ ccloud cluster networking private-endpoint-service list <cluster-id> -o json
 - `region` — The region where the service is available
 - `status` — Should be AVAILABLE
 
-## Private Endpoint Connections (Ingress)
+## Private Endpoint Connections — Ingress (Cloud API / Console / Terraform)
 
 ### List Private Endpoint Connections
 
+**Cloud Console:** Navigate to your cluster's **Networking > Private endpoint** tab.
+
+**Cloud API:**
 ```bash
-# List all private endpoint connections for a cluster
-ccloud cluster networking private-endpoint-connection list <cluster-id> -o json
+curl "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-connections" \
+  -H "Authorization: Bearer <api-key>"
 ```
 
 **Key fields to inspect:**
@@ -33,27 +39,44 @@ ccloud cluster networking private-endpoint-connection list <cluster-id> -o json
 
 ### Create a Private Endpoint Connection
 
+**Cloud Console:** Networking > Private endpoint > Add a private endpoint.
+
+**Cloud API:**
 ```bash
-# Register a cloud provider endpoint with the cluster
-ccloud cluster networking private-endpoint-connection create <cluster-id> \
-  --endpoint-id <cloud-provider-endpoint-id>
+curl -X POST "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-connections" \
+  -H "Authorization: Bearer <api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"endpoint_id": "<cloud-provider-endpoint-id>"}'
+```
+
+**Terraform:**
+```hcl
+resource "cockroach_private_endpoint_connection" "connection" {
+  cluster_id  = cockroach_cluster.cluster.id
+  endpoint_id = "<cloud-provider-endpoint-id>"
+}
 ```
 
 ### Delete a Private Endpoint Connection
 
+**Cloud Console:** Networking > Private endpoint > select endpoint > Delete.
+
+**Cloud API:**
 ```bash
-# Remove a private endpoint connection
-ccloud cluster networking private-endpoint-connection delete <cluster-id> \
-  --endpoint-id <endpoint-id>
+curl -X DELETE "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-connections/<endpoint-id>" \
+  -H "Authorization: Bearer <api-key>"
 ```
 
-## Egress Private Endpoints
+## Egress Private Endpoints (Cloud API / Console)
 
 ### List Egress Endpoints
 
+**Cloud Console:** Navigate to your cluster's **Networking > Egress** tab.
+
+**Cloud API:**
 ```bash
-# List all egress endpoints for a cluster
-ccloud cluster networking egress-endpoint list <cluster-id> -o json
+curl "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/egress-endpoints" \
+  -H "Authorization: Bearer <api-key>"
 ```
 
 **Key fields to inspect:**
@@ -64,22 +87,29 @@ ccloud cluster networking egress-endpoint list <cluster-id> -o json
 
 ### Create an Egress Endpoint
 
+**Cloud Console:** Networking > Egress > Add egress endpoint.
+
+**Cloud API:**
 ```bash
-# Create an egress endpoint to an external service
-ccloud cluster networking egress-endpoint create <cluster-id> \
-  --service-name <external-service-name> \
-  --cloud-provider <aws|gcp|azure>
+curl -X POST "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/egress-endpoints" \
+  -H "Authorization: Bearer <api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"service_name": "<external-service-name>", "cloud_provider": "<AWS|GCP|AZURE>"}'
 ```
 
 ### Delete an Egress Endpoint
 
+**Cloud Console:** Networking > Egress > select endpoint > Delete.
+
+**Cloud API:**
 ```bash
-# Remove an egress endpoint
-ccloud cluster networking egress-endpoint delete <cluster-id> \
-  --endpoint-id <egress-endpoint-id>
+curl -X DELETE "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/egress-endpoints/<endpoint-id>" \
+  -H "Authorization: Bearer <api-key>"
 ```
 
-## VPC Peering
+## VPC Peering (ccloud CLI)
+
+> VPC peering commands may require a specific version of `ccloud`. Run `ccloud version` to check. If unavailable, use the Cloud Console or Cloud API.
 
 ### List VPC Peering Connections
 
@@ -119,25 +149,13 @@ ccloud cluster networking peering delete <cluster-id> \
   --peering-id <peering-id>
 ```
 
-## IP Allowlist (Related)
+## IP Allowlist (ccloud CLI)
 
 Private endpoints bypass the IP allowlist, but the allowlist still applies to public connections.
 
 ```bash
 # List current allowlist (for comparison with private endpoint setup)
-ccloud cluster networking allowlist list <cluster-id> -o json
-```
-
-## Output Formatting
-
-All commands support `-o json` for machine-readable output, which is useful for scripting and Terraform integration.
-
-```bash
-# JSON output
-ccloud cluster networking private-endpoint-connection list <cluster-id> -o json
-
-# Default table output
-ccloud cluster networking private-endpoint-connection list <cluster-id>
+ccloud cluster networking allowlist list <cluster-name> -o json
 ```
 
 ## Notes
@@ -146,4 +164,4 @@ ccloud cluster networking private-endpoint-connection list <cluster-id>
 - Egress endpoints require the external service to accept the connection
 - VPC peering requires non-overlapping CIDR ranges between the CockroachDB Cloud VPC and the peer VPC
 - Private endpoint changes can take several minutes to propagate
-- Some commands may require specific ccloud CLI versions — run `ccloud version` to check
+- For Terraform examples, see [cloud provider setup reference](cloud-provider-setup.md)

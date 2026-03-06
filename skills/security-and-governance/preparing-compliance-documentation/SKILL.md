@@ -133,7 +133,7 @@ ccloud cluster info <cluster-name> -o json
 | Audit logging | SQL: `SHOW CLUSTER SETTING sql.log.admin_audit.enabled` | `true` |
 | Log export | `ccloud cluster info` | Configured and ENABLED |
 | IP allowlist | `ccloud cluster networking allowlist list` | No 0.0.0.0/0 |
-| Private endpoints | `ccloud cluster networking private-endpoint-connection list` | Configured (recommended) |
+| Private endpoints | Cloud Console: Networking > Private endpoint | Configured (recommended) |
 | Password policy | SQL: min_password_length | >= 12 |
 | Admin count | SQL: admin role grants | <= 3 |
 | PUBLIC privileges | SQL: SHOW GRANTS FOR public | Minimal |
@@ -211,4 +211,4 @@ When responding to customer or auditor questionnaires, reference these standard 
 **Official CockroachDB Documentation:**
 - [CockroachDB Cloud Security Overview](https://www.cockroachlabs.com/docs/cockroachcloud/security-overview.html)
 - [Compliance](https://www.cockroachlabs.com/docs/cockroachcloud/compliance.html)
-- [SOC 2 Compliance](https://www.cockroachlabs.com/docs/cockroachcloud/soc-2.html)
+- [SOC 2 Compliance](https://www.cockroachlabs.com/docs/cockroachcloud/compliance)

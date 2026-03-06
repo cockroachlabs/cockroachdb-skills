@@ -63,9 +63,14 @@ Private endpoints allow applications in your VPC to connect to CockroachDB Cloud
 
 #### 1.1 Get the Private Endpoint Service
 
+Get the private endpoint service information from the **Cloud Console** or **Cloud API**:
+
+**Cloud Console:** Navigate to your cluster's **Networking > Private endpoint** tab. The service name/ID is displayed.
+
+**Cloud API:**
 ```bash
-# Get the private endpoint service information for the cluster
-ccloud cluster networking private-endpoint-service list <cluster-id> -o json
+curl "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-services" \
+  -H "Authorization: Bearer <api-key>"
 ```
 
 This returns the cloud provider service name/ID needed to create the endpoint in your cloud account.
@@ -118,15 +123,31 @@ az network private-endpoint create \
 
 #### 1.5 Register the Endpoint in CockroachDB Cloud
 
+Register the private endpoint via the **Cloud Console** or **Cloud API**:
+
+**Cloud Console:** Navigate to your cluster's **Networking > Private endpoint** tab, click **Add a private endpoint**, and enter the cloud provider endpoint ID.
+
+**Cloud API:**
 ```bash
 # Register the private endpoint connection with the cluster
-ccloud cluster networking private-endpoint-connection create <cluster-id> \
-  --endpoint-id <cloud-provider-endpoint-id>
+curl -X POST "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-connections" \
+  -H "Authorization: Bearer <api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"endpoint_id": "<cloud-provider-endpoint-id>"}'
 ```
 
-Wait for the connection status to become `AVAILABLE`:
+**Terraform:**
+```hcl
+resource "cockroach_private_endpoint_connection" "connection" {
+  cluster_id  = cockroach_cluster.cluster.id
+  endpoint_id = "<cloud-provider-endpoint-id>"
+}
+```
+
+Wait for the connection status to become `AVAILABLE` — check in the Cloud Console or via API:
 ```bash
-ccloud cluster networking private-endpoint-connection list <cluster-id> -o json
+curl "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-connections" \
+  -H "Authorization: Bearer <api-key>"
 ```
 
 #### 1.6 Configure DNS
@@ -149,11 +170,17 @@ Egress private endpoints allow CockroachDB Cloud to connect to external services
 
 #### 2.1 Create an Egress Private Endpoint
 
+Create an egress endpoint via the **Cloud Console** or **Cloud API**:
+
+**Cloud Console:** Navigate to your cluster's **Networking > Egress** tab, click **Add egress endpoint**, and specify the external service.
+
+**Cloud API:**
 ```bash
 # Create an egress endpoint to an external service
-ccloud cluster networking egress-endpoint create <cluster-id> \
-  --service-name <external-service-name> \
-  --cloud-provider <aws|gcp|azure>
+curl -X POST "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/egress-endpoints" \
+  -H "Authorization: Bearer <api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"service_name": "<external-service-name>", "cloud_provider": "<AWS|GCP|AZURE>"}'
 ```
 
 **Common egress targets:**
@@ -172,9 +199,10 @@ The external service owner must accept the pending connection request. For Confl
 
 #### 2.3 Verify Egress Endpoint Status
 
+Check egress endpoint status via the Cloud Console (**Networking > Egress** tab) or Cloud API:
 ```bash
-# Check egress endpoint status (should transition from PENDING to AVAILABLE)
-ccloud cluster networking egress-endpoint list <cluster-id> -o json
+curl "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/egress-endpoints" \
+  -H "Authorization: Bearer <api-key>"
 ```
 
 **Troubleshooting "stuck pending":**
@@ -273,11 +301,13 @@ cockroach sql --url "<connection-string>" -e "SELECT 1;"
 
 **Remove a private endpoint:**
 ```bash
-# Delete the endpoint connection in CockroachDB Cloud
-ccloud cluster networking private-endpoint-connection delete <cluster-id> \
-  --endpoint-id <endpoint-id>
+# Delete the endpoint connection in CockroachDB Cloud (via Cloud API)
+curl -X DELETE "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-connections/<endpoint-id>" \
+  -H "Authorization: Bearer <api-key>"
 
-# Delete the endpoint in your cloud provider
+# Or remove via Cloud Console: Networking > Private endpoint > Delete
+
+# Then delete the endpoint in your cloud provider
 # AWS
 aws ec2 delete-vpc-endpoints --vpc-endpoint-ids <endpoint-id>
 ```
@@ -302,7 +332,7 @@ After removing private connectivity, ensure the IP allowlist is configured to al
 **Official CockroachDB Documentation:**
 - [Network Authorization](https://www.cockroachlabs.com/docs/cockroachcloud/network-authorization.html)
 - [AWS PrivateLink](https://www.cockroachlabs.com/docs/cockroachcloud/aws-privatelink.html)
-- [GCP Private Service Connect](https://www.cockroachlabs.com/docs/cockroachcloud/gcp-private-service-connect.html)
-- [Azure Private Link](https://www.cockroachlabs.com/docs/cockroachcloud/azure-private-link.html)
+- [GCP Private Service Connect](https://www.cockroachlabs.com/docs/cockroachcloud/connect-to-an-advanced-cluster)
+- [Azure Private Link](https://www.cockroachlabs.com/docs/cockroachcloud/network-authorization)
 - [VPC Peering](https://www.cockroachlabs.com/docs/cockroachcloud/network-authorization.html#vpc-peering)
 - [Egress Perimeter Controls](https://www.cockroachlabs.com/docs/cockroachcloud/egress-perimeter-controls.html)

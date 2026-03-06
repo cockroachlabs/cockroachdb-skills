@@ -157,11 +157,13 @@ Skip N/A checks for the detected deployment model and mark them as `[N/A]` in th
 # IP allowlists (all tiers)
 ccloud cluster networking allowlist list <cluster-id> -o json
 
-# Ingress private endpoints (Standard+, Advanced)
-ccloud cluster networking private-endpoint-connection list <cluster-id> -o json
+# Ingress private endpoints (Standard+, Advanced) — via Cloud Console or API
+# Cloud Console: Networking > Private endpoint tab
+# API: GET /api/v1/clusters/{cluster_id}/networking/private-endpoint-connections
 
-# Egress private endpoints (Advanced only)
-ccloud cluster networking egress-endpoint list <cluster-id> -o json
+# Egress private endpoints (Advanced only) — via Cloud Console or API
+# Cloud Console: Networking > Egress tab
+# API: GET /api/v1/clusters/{cluster_id}/networking/egress-endpoints
 ```
 
 ```sql
@@ -229,7 +231,7 @@ SHOW CLUSTER SETTING server.identity_map.configuration;
 -- List all users and their roles
 SELECT
   username,
-  is_role,
+  options,
   member_of
 FROM [SHOW USERS]
 ORDER BY username;
@@ -276,11 +278,6 @@ ccloud cluster info <cluster-name> -o json
 # Look for cmek_config in the output
 ```
 
-```sql
--- Verify encryption at rest via SQL
-SHOW CLUSTER SETTING enterprise.encryption.type;
-```
-
 **Evaluate by plan type (Cloud):**
 - **Standard plan:** INFO — "Upgrade to Advanced plan with Advanced Security Add-on to enable CMEK"
 - **Advanced plan without Advanced Security Add-on:** INFO — "Add Advanced Security Add-on to enable CMEK"
@@ -313,9 +310,6 @@ openssl x509 -in <certs-dir>/node.crt -noout -enddate
 **Remediation (self-hosted):** [managing-tls-certificates](../managing-tls-certificates/SKILL.md)
 
 **Cryptographic posture (both Cloud and self-hosted — informational only):**
-```sql
-SHOW CLUSTER SETTING server.tls.min_version;
-```
 ```bash
 # Primary: sslyze with STARTTLS postgres (if available)
 sslyze <host>:26257 --starttls postgres
@@ -548,7 +542,7 @@ For each FAIL finding, offer: **"Explain how to fix this"** (step-by-step guidan
 - [Managing IP Allowlists](https://www.cockroachlabs.com/docs/cockroachcloud/network-authorization.html)
 - [Cloud Console SSO](https://www.cockroachlabs.com/docs/cockroachcloud/cloud-org-sso.html)
 - [Cluster SSO (Database SSO)](https://www.cockroachlabs.com/docs/stable/sso-sql.html)
-- [SCIM Provisioning](https://www.cockroachlabs.com/docs/cockroachcloud/configure-scim.html)
+- [SCIM Provisioning](https://www.cockroachlabs.com/docs/cockroachcloud/configure-scim-provisioning)
 - [CMEK Overview](https://www.cockroachlabs.com/docs/cockroachcloud/cmek.html)
 - [Audit Logging](https://www.cockroachlabs.com/docs/stable/sql-audit-logging.html)
 - [Security Reference: Authorization](https://www.cockroachlabs.com/docs/stable/security-reference/authorization.html)

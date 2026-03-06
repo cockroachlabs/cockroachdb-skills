@@ -62,9 +62,14 @@ ccloud cluster networking allowlist list <cluster-id> -o json
 
 ### List Private Endpoint Connections
 
+Private endpoint connections are managed via the **Cloud Console** or **Cloud API** (not the `ccloud` CLI).
+
+**Cloud Console:** Navigate to your cluster's **Networking > Private endpoint** tab.
+
+**Cloud API:**
 ```bash
-# List private endpoint connections (Advanced plan)
-ccloud cluster networking private-endpoint-connection list <cluster-id> -o json
+curl "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-connections" \
+  -H "Authorization: Bearer <api-key>"
 ```
 
 ## SSO and SCIM

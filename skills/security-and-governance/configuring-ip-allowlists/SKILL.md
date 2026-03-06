@@ -71,9 +71,8 @@ Before modifying the allowlist, document all legitimate access sources:
 ### 4. Add Specific CIDR Entries
 
 ```bash
-# Add a specific CIDR range
-ccloud cluster networking allowlist create <cluster-id> \
-  --cidr-address "<cidr>" \
+# Add a specific CIDR range (CIDR is a positional argument)
+ccloud cluster networking allowlist create <cluster-name> <cidr> \
   --sql \
   --ui \
   --name "<description>"
@@ -82,21 +81,18 @@ ccloud cluster networking allowlist create <cluster-id> \
 **Examples:**
 ```bash
 # Office network — SQL and UI access
-ccloud cluster networking allowlist create <cluster-id> \
-  --cidr-address "203.0.113.0/24" \
+ccloud cluster networking allowlist create <cluster-name> 203.0.113.0/24 \
   --sql \
   --ui \
   --name "Office network"
 
 # CI/CD runners — SQL only
-ccloud cluster networking allowlist create <cluster-id> \
-  --cidr-address "192.0.2.0/28" \
+ccloud cluster networking allowlist create <cluster-name> 192.0.2.0/28 \
   --sql \
   --name "CI/CD runners"
 
 # Single IP — /32 for maximum specificity
-ccloud cluster networking allowlist create <cluster-id> \
-  --cidr-address "198.51.100.42/32" \
+ccloud cluster networking allowlist create <cluster-name> 198.51.100.42/32 \
   --sql \
   --ui \
   --name "Developer workstation"
@@ -106,8 +102,7 @@ ccloud cluster networking allowlist create <cluster-id> \
 
 ```bash
 # Delete the 0.0.0.0/0 entry (or other overly broad entries)
-ccloud cluster networking allowlist delete <cluster-id> \
-  --cidr-address "0.0.0.0/0"
+ccloud cluster networking allowlist delete <cluster-name> 0.0.0.0/0
 ```
 
 **Important:** Only remove `0.0.0.0/0` after confirming your specific CIDR entries are in place and tested.
@@ -154,8 +149,7 @@ If you lose access after removing a broad entry:
 
 ```bash
 # Emergency: re-add 0.0.0.0/0 via ccloud (if you still have ccloud access)
-ccloud cluster networking allowlist create <cluster-id> \
-  --cidr-address "0.0.0.0/0" \
+ccloud cluster networking allowlist create <cluster-name> 0.0.0.0/0 \
   --sql \
   --ui \
   --name "Emergency - temporary open access"

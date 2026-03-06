@@ -10,7 +10,7 @@ This reference provides SQL queries for auditing and managing user privileges on
 -- All users and their role memberships
 SELECT
   username,
-  is_role,
+  options,
   member_of
 FROM [SHOW USERS]
 ORDER BY username;
@@ -40,7 +40,7 @@ FROM [SHOW GRANTS ON ROLE admin];
 -- Users not assigned to any custom role (potential orphaned accounts)
 SELECT username
 FROM [SHOW USERS]
-WHERE NOT is_role
+WHERE 'NOLOGIN' != ALL(options)
   AND array_length(member_of, 1) IS NULL
 ORDER BY username;
 ```
@@ -51,7 +51,7 @@ ORDER BY username;
 -- Roles with no members (potential unused roles)
 SELECT username AS role_name
 FROM [SHOW USERS]
-WHERE is_role = true
+WHERE 'NOLOGIN' = ANY(options)
 ORDER BY role_name;
 -- Compare with SHOW GRANTS ON ROLE <role_name> to find empty roles
 ```

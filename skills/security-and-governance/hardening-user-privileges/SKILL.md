@@ -39,7 +39,7 @@ SELECT member FROM [SHOW GRANTS ON ROLE admin] WHERE member = current_user();
 -- List all users and their role memberships
 SELECT
   username,
-  is_role,
+  options,
   member_of
 FROM [SHOW USERS]
 ORDER BY username;

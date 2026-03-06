@@ -10,7 +10,7 @@ This reference provides SQL queries used during security posture assessments. Al
 -- All users and their role memberships
 SELECT
   username,
-  is_role,
+  options,
   member_of
 FROM [SHOW USERS]
 ORDER BY username;
@@ -42,7 +42,7 @@ ORDER BY member;
 -- Users not assigned to any custom role (potential orphaned accounts)
 SELECT username
 FROM [SHOW USERS]
-WHERE NOT is_role
+WHERE 'NOLOGIN' != ALL(options)
   AND array_length(member_of, 1) IS NULL
 ORDER BY username;
 ```

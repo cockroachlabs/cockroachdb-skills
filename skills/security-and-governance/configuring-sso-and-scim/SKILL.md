@@ -491,7 +491,7 @@ SET CLUSTER SETTING server.identity_map.configuration = '';
 **Official CockroachDB Documentation:**
 - [Cloud Console SSO](https://www.cockroachlabs.com/docs/cockroachcloud/cloud-org-sso.html)
 - [Cluster SSO (Database SSO)](https://www.cockroachlabs.com/docs/stable/sso-sql.html)
-- [SCIM Provisioning](https://www.cockroachlabs.com/docs/cockroachcloud/configure-scim.html)
+- [SCIM Provisioning](https://www.cockroachlabs.com/docs/cockroachcloud/configure-scim-provisioning)
 - [Cluster Settings](https://www.cockroachlabs.com/docs/stable/cluster-settings.html)
 - [HBA Configuration](https://www.cockroachlabs.com/docs/stable/security-reference/authentication.html)
 - [JWT Authentication](https://www.cockroachlabs.com/docs/stable/sso-sql.html)

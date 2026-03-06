@@ -7,8 +7,10 @@ This reference provides cloud provider-specific setup steps for private endpoint
 ### Step 1: Create a VPC Endpoint
 
 ```bash
-# Get the service name from ccloud
-ccloud cluster networking private-endpoint-service list <cluster-id> -o json
+# Get the service name from the Cloud Console (Networking > Private endpoint)
+# or via Cloud API:
+# curl "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-services" \
+#   -H "Authorization: Bearer <api-key>"
 # Note the "service_name" value (e.g., com.amazonaws.vpce.us-east-1.vpce-svc-xxxx)
 
 # Create the VPC endpoint
@@ -57,9 +59,20 @@ aws route53 change-resource-record-sets \
 
 ### Step 4: Register with CockroachDB Cloud
 
+Register the endpoint via Cloud Console (**Networking > Private endpoint > Add**) or Cloud API:
 ```bash
-ccloud cluster networking private-endpoint-connection create <cluster-id> \
-  --endpoint-id <vpce-xxxx>
+curl -X POST "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-connections" \
+  -H "Authorization: Bearer <api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"endpoint_id": "<vpce-xxxx>"}'
+```
+
+Or via Terraform:
+```hcl
+resource "cockroach_private_endpoint_connection" "main" {
+  cluster_id  = "<cluster-id>"
+  endpoint_id = aws_vpc_endpoint.cockroachdb.id
+}
 ```
 
 ## GCP Private Service Connect Setup
@@ -76,8 +89,10 @@ gcloud compute addresses create cockroachdb-psc-ip \
 ### Step 2: Create the Forwarding Rule
 
 ```bash
-# Get the service attachment from ccloud
-ccloud cluster networking private-endpoint-service list <cluster-id> -o json
+# Get the service attachment from the Cloud Console (Networking > Private endpoint)
+# or via Cloud API:
+# curl "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-services" \
+#   -H "Authorization: Bearer <api-key>"
 # Note the "service_name" value (the service attachment URI)
 
 gcloud compute forwarding-rules create cockroachdb-psc \
@@ -108,9 +123,12 @@ gcloud dns record-sets create "<cluster-hostname>." \
 
 ### Step 4: Register with CockroachDB Cloud
 
+Register via Cloud Console (**Networking > Private endpoint > Add**) or Cloud API:
 ```bash
-ccloud cluster networking private-endpoint-connection create <cluster-id> \
-  --endpoint-id <forwarding-rule-uri>
+curl -X POST "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-connections" \
+  -H "Authorization: Bearer <api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"endpoint_id": "<forwarding-rule-uri>"}'
 ```
 
 ## Azure Private Link Setup
@@ -118,8 +136,10 @@ ccloud cluster networking private-endpoint-connection create <cluster-id> \
 ### Step 1: Create a Private Endpoint
 
 ```bash
-# Get the service ID from ccloud
-ccloud cluster networking private-endpoint-service list <cluster-id> -o json
+# Get the service ID from Cloud Console (Networking > Private endpoint)
+# or via Cloud API:
+# curl "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-services" \
+#   -H "Authorization: Bearer <api-key>"
 
 az network private-endpoint create \
   --name cockroachdb-pe \
@@ -157,9 +177,12 @@ az network private-dns record-set a add-record \
 
 ### Step 3: Register with CockroachDB Cloud
 
+Register via Cloud Console (**Networking > Private endpoint > Add**) or Cloud API:
 ```bash
-ccloud cluster networking private-endpoint-connection create <cluster-id> \
-  --endpoint-id <azure-endpoint-id>
+curl -X POST "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/private-endpoint-connections" \
+  -H "Authorization: Bearer <api-key>" \
+  -H "Content-Type: application/json" \
+  -d '{"endpoint_id": "<azure-endpoint-id>"}'
 ```
 
 ## Egress Private Endpoints to Confluent Cloud Kafka
@@ -168,20 +191,22 @@ This is the most common egress use case — connecting CockroachDB CDC changefee
 
 ### AWS
 
-1. Create an egress endpoint in CockroachDB Cloud:
+1. Create an egress endpoint via Cloud Console (**Networking > Egress > Add**) or Cloud API:
    ```bash
-   ccloud cluster networking egress-endpoint create <cluster-id> \
-     --service-name <confluent-privatelink-service-name> \
-     --cloud-provider aws
+   curl -X POST "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/egress-endpoints" \
+     -H "Authorization: Bearer <api-key>" \
+     -H "Content-Type: application/json" \
+     -d '{"service_name": "<confluent-privatelink-service-name>", "cloud_provider": "AWS"}'
    ```
 
 2. In Confluent Cloud Console:
    - Navigate to **Networking > Private Link Access**
    - Accept the pending connection from the CockroachDB Cloud AWS account
 
-3. Verify the egress endpoint status is AVAILABLE:
+3. Verify the egress endpoint status is AVAILABLE in Cloud Console (**Networking > Egress** tab) or via API:
    ```bash
-   ccloud cluster networking egress-endpoint list <cluster-id> -o json
+   curl "https://cockroachlabs.cloud/api/v1/clusters/<cluster-id>/networking/egress-endpoints" \
+     -H "Authorization: Bearer <api-key>"
    ```
 
 4. Create a changefeed using the private Kafka endpoint:
