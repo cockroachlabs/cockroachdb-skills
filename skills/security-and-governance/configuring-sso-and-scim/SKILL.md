@@ -1,15 +1,20 @@
 ---
 name: configuring-sso-and-scim
-description: Configures SSO authentication and SCIM 2.0 provisioning for CockroachDB at both the Cloud Console and database levels. Covers Cloud Console SSO (SAML/OIDC), Database-Level SSO via OIDC (JWT) or LDAP/AD authentication, SCIM 2.0 automated user provisioning on Cloud Console, and auto user provisioning on the database. Use when enabling centralized identity management, setting up SSO for compliance, or automating user lifecycle management.
-compatibility: Requires CockroachDB Cloud organization admin for Console SSO/SCIM. Requires cluster admin for Database SSO configuration. SCIM 2.0 requires Enterprise plan. LDAP/AD authentication is self-hosted only (not available on CockroachDB Cloud) and requires v24.3+ for AD group-to-role mapping.
+description: Configures SSO authentication and SCIM 2.0 provisioning for CockroachDB across four distinct layers — Cloud Console SSO (SAML/OIDC), DB Console SSO (OIDC), SQL/Cluster SSO (JWT or LDAP/AD), and SCIM 2.0 automated provisioning. Use when enabling centralized identity management, setting up SSO for compliance, or automating user lifecycle management.
+compatibility: Requires CockroachDB Cloud organization admin for Console SSO/SCIM. Requires cluster admin for DB Console and SQL SSO configuration. DB Console SSO requires Advanced or Enterprise plan (not available on Standard/Basic). LDAP/AD authentication is self-hosted only (not available on CockroachDB Cloud). SCIM 2.0 requires Enterprise plan.
 metadata:
   author: cockroachdb
-  version: "1.1"
+  version: "2.0"
 ---
 
 # Configuring SSO and SCIM
 
-Configures Single Sign-On (SSO) and SCIM 2.0 provisioning for CockroachDB at multiple levels: Cloud Console SSO for web UI access, Database-Level SSO for SQL authentication (via OIDC/JWT or LDAP/AD), SCIM 2.0 for automated user lifecycle management on Cloud Console, and auto user provisioning for database-level identity mapping.
+Configures Single Sign-On (SSO) and SCIM 2.0 provisioning for CockroachDB across four distinct layers:
+
+1. **Cloud Console SSO** — SAML or OIDC for the CockroachDB Cloud web console
+2. **DB Console SSO** — OIDC for the DB Console web UI (Advanced/Enterprise only)
+3. **SQL/Cluster SSO** — JWT-based or LDAP/AD authentication for SQL client connections
+4. **SCIM 2.0** — Automated user provisioning on the Cloud Console
 
 ## When to Use This Skill
 
@@ -19,16 +24,16 @@ Configures Single Sign-On (SSO) and SCIM 2.0 provisioning for CockroachDB at mul
 - Setting up SSO for SQL authentication to eliminate database-level passwords
 - Configuring LDAP/AD authentication for self-hosted clusters in on-prem or hybrid environments
 - Responding to a security audit finding about missing SSO or SCIM configuration
-- Onboarding to a zero-trust authentication model
 
 ## Prerequisites
 
 - **Cloud Console role:** Organization Admin (for Console SSO and SCIM)
-- **SQL access:** Cluster admin role (for Database SSO configuration)
+- **SQL access:** Cluster admin role (for DB Console SSO and SQL/Cluster SSO)
 - **Identity Provider (IdP):** Configured and operational — Okta, Azure AD, Google Workspace, PingOne, or other SAML/OIDC-compatible provider
 - **ccloud CLI** authenticated (`ccloud auth login`) — for Cloud Console SSO/SCIM
+- **DB Console SSO:** Advanced or Enterprise plan required (not available on Standard or Basic)
 - **SCIM:** Enterprise plan required for SCIM 2.0
-- **LDAP/AD:** Self-hosted CockroachDB cluster required (LDAP is not available on CockroachDB Cloud); v24.3+ required for LDAP group-to-role mapping
+- **LDAP/AD:** Self-hosted CockroachDB cluster required (LDAP is not available on CockroachDB Cloud)
 
 **Verify access:**
 ```bash
@@ -37,21 +42,67 @@ ccloud auth whoami
 
 ## Configuration Decisions
 
-Before proceeding, determine which components the user needs. Ask which of the following options apply to their environment, then follow only the relevant sections below.
+Before proceeding, determine which layers the user needs. Ask which of the following apply, then follow only the relevant Parts below.
 
-**Decision 1 — Cloud Console SSO protocol:**
-- **SAML:** Best for enterprise IdPs with existing SAML infrastructure (Okta, Azure AD, PingOne). Mature standard with broad IdP support.
-- **OIDC:** Simpler setup, supports Google Workspace and modern IdPs natively. Lighter-weight protocol.
+**Decision 1 — Cloud Console SSO:**
+- **SAML:** Best for enterprise IdPs with existing SAML infrastructure (Okta, Azure AD, PingOne)
+- **OIDC:** Simpler setup, supports Google Workspace and modern IdPs natively
+- **Skip:** Not needed
 
-**Decision 2 — SCIM 2.0 provisioning:**
-- **Enable:** Automates user lifecycle (create/update/deactivate) between IdP and Cloud Console. Requires Enterprise plan.
-- **Skip:** Manage Cloud Console users manually. Appropriate if the organization is small or does not have an Enterprise plan.
+**Decision 2 — DB Console SSO:**
+- **Enable (OIDC):** SSO for the DB Console web UI. Requires Advanced or Enterprise plan — not available on Standard or Basic
+- **Skip:** Not needed or plan does not support it
 
-**Decision 3 — Database-Level SSO method:**
-- **OIDC (JWT-based):** Cloud-native approach using JWT tokens. Supports auto user provisioning. Works on both CockroachDB Cloud and self-hosted clusters.
-- **LDAP/AD:** Direct directory authentication against Active Directory or OpenLDAP. Best for on-premises AD environments. Self-hosted only (not available on CockroachDB Cloud).
+**Decision 3 — SQL/Cluster SSO method:**
+- **JWT-based:** Cloud-native approach using JWT tokens for SQL client connections. Works on both CockroachDB Cloud and self-hosted clusters
+- **LDAP/AD:** Direct directory authentication against Active Directory or OpenLDAP. Self-hosted only (not available on CockroachDB Cloud)
+- **Skip:** Not needed
+
+**Decision 4 — SCIM 2.0 provisioning:**
+- **Enable:** Automates user lifecycle (create/update/deactivate) between IdP and Cloud Console. Requires Enterprise plan
+- **Skip:** Manage Cloud Console users manually
 
 ## Steps
+
+### Step 0: Audit Current SSO Configuration
+
+Before configuring anything, audit the current state of all four SSO layers.
+
+#### Cloud Console SSO
+
+Check SSO status in the Cloud Console UI: **Organization Settings > Authentication**. The `ccloud` CLI does not expose SSO configuration commands.
+
+#### DB Console SSO (OIDC)
+
+```sql
+SHOW CLUSTER SETTING server.oidc_authentication.enabled;
+SHOW CLUSTER SETTING server.oidc_authentication.provider_url;
+SHOW CLUSTER SETTING server.oidc_authentication.client_id;
+```
+
+#### SQL/Cluster SSO (JWT)
+
+```sql
+SHOW CLUSTER SETTING server.jwt_authentication.enabled;
+SHOW CLUSTER SETTING server.jwt_authentication.issuers.configuration;
+SHOW CLUSTER SETTING server.jwt_authentication.jwks_auto_fetch.enabled;
+```
+
+#### LDAP Authentication
+
+```sql
+-- Check HBA rules for any ldap method entries
+SHOW CLUSTER SETTING server.host_based_authentication.configuration;
+```
+
+Look for lines containing `ldap` in the HBA output.
+
+#### Auto-Provisioning
+
+```sql
+SHOW CLUSTER SETTING security.provisioning.jwt.enabled;
+SHOW CLUSTER SETTING security.provisioning.ldap.enabled;
+```
 
 ### Part 1: Cloud Console SSO
 
@@ -112,31 +163,26 @@ After verifying SSO works:
 2. Enable **Require SSO** to disable password-based login
 3. Confirm a break-glass admin account exists (see Safety Considerations)
 
-### Part 2: Database-Level SSO
+### Part 2: DB Console SSO (OIDC)
 
-Database-Level SSO enables SQL authentication via the IdP, replacing database-level passwords. Choose **Option A** (OIDC/JWT) or **Option B** (LDAP/AD) based on Decision 3.
+> **This configures SSO for the DB Console web UI only, NOT for SQL client connections.** SQL client SSO is configured separately in Part 3 (JWT) or Part 4 (LDAP/AD).
 
-#### Option A: OIDC (JWT-based SSO)
+> **Prerequisite:** Advanced or Enterprise plan required. DB Console SSO is not available on Standard or Basic plans.
 
-OIDC-based database SSO uses JWT tokens from an IdP for SQL authentication. Works on both CockroachDB Cloud and self-hosted clusters.
+DB Console SSO uses OIDC to authenticate users to the CockroachDB DB Console web interface.
 
-##### 2A.1 Check Current Cluster SSO Configuration
+#### 2.1 Check Current DB Console SSO Configuration
 
 ```sql
--- Check if OIDC authentication is enabled
 SHOW CLUSTER SETTING server.oidc_authentication.enabled;
-
--- Check OIDC provider URL
 SHOW CLUSTER SETTING server.oidc_authentication.provider_url;
-
--- Check client ID
 SHOW CLUSTER SETTING server.oidc_authentication.client_id;
 ```
 
-##### 2A.2 Configure Cluster SSO
+#### 2.2 Configure DB Console SSO
 
 ```sql
--- Enable OIDC authentication for SQL
+-- Enable OIDC authentication for the DB Console
 SET CLUSTER SETTING server.oidc_authentication.enabled = true;
 
 -- Set the OIDC provider URL (your IdP's discovery endpoint)
@@ -148,51 +194,119 @@ SET CLUSTER SETTING server.oidc_authentication.client_id = '<client-id>';
 -- Set the client secret
 SET CLUSTER SETTING server.oidc_authentication.client_secret = '<client-secret>';
 
--- Configure the claim field used for SQL username mapping
+-- Configure the claim field used for username mapping
 SET CLUSTER SETTING server.oidc_authentication.claim_json_key = 'email';
 
 -- Configure the principal regex (extract username from claim)
 SET CLUSTER SETTING server.oidc_authentication.principal_regex = '^([^@]+)';
 ```
 
-##### 2A.3 Configure HBA for SSO Authentication
+See [configuration steps reference](references/configuration-steps.md) for IdP-specific DB Console SSO setup (Okta, Azure AD).
+
+#### 2.3 Test DB Console SSO
+
+1. Open the DB Console URL in a browser
+2. Click **Log in with OIDC**
+3. Authenticate with your IdP
+4. Verify you are logged into the DB Console
+
+### Part 3: SQL/Cluster SSO (JWT)
+
+SQL/Cluster SSO uses JWT tokens from an IdP to authenticate SQL client connections. This is separate from DB Console SSO (Part 2) — it authenticates `cockroach sql` and application connections, not the web UI.
+
+#### 3.1 Check Current JWT SSO Configuration
 
 ```sql
--- Add HBA rule to accept JWT authentication
--- This should be added before any password-based rules
-SET CLUSTER SETTING server.host_based_authentication.configuration = '
-host all all all jwt-token
-host all all all password
+SHOW CLUSTER SETTING server.jwt_authentication.enabled;
+SHOW CLUSTER SETTING server.jwt_authentication.issuers.configuration;
+SHOW CLUSTER SETTING server.jwt_authentication.jwks_auto_fetch.enabled;
+```
+
+#### 3.2 Configure JWT Authentication
+
+```sql
+-- Enable JWT authentication for SQL connections
+SET CLUSTER SETTING server.jwt_authentication.enabled = true;
+
+-- Configure the JWT issuer(s)
+-- Format: JSON object with issuer URL and audience
+SET CLUSTER SETTING server.jwt_authentication.issuers.configuration = '{
+  "issuers": [
+    {
+      "issuer": "https://your-idp.example.com",
+      "audience": "<client-id>"
+    }
+  ]
+}';
+
+-- Enable automatic JWKS fetching (recommended)
+SET CLUSTER SETTING server.jwt_authentication.jwks_auto_fetch.enabled = true;
+
+-- Configure the claim used for SQL username mapping
+SET CLUSTER SETTING server.jwt_authentication.claim = 'email';
+```
+
+See [configuration steps reference](references/configuration-steps.md) for IdP-specific JWT configuration (Okta, Azure AD, Google).
+
+#### 3.3 Configure Identity Mapping
+
+Map IdP identities (e.g., email addresses) to SQL usernames:
+
+```sql
+-- Map user@example.com -> user (strip domain)
+SET CLUSTER SETTING server.identity_map.configuration = '
+crdb /^(.*)@example\.com$ \1
 ';
 ```
 
-##### 2A.4 Test Database SSO
+#### 3.4 Enable Auto User Provisioning (Optional)
 
-```bash
-# Authenticate via SSO and get a JWT token from your IdP
-# Use the token to connect via cockroach sql
-cockroach sql --url "postgresql://<username>:<jwt-token>@<cluster-host>:26257/defaultdb?sslmode=verify-full"
-```
-
-#### Option B: LDAP/AD Authentication
-
-LDAP/AD-based database authentication validates SQL credentials directly against an LDAP directory (Active Directory or OpenLDAP). **Self-hosted only** — not available on CockroachDB Cloud.
-
-##### 2B.1 Check Current HBA Configuration
+Auto-provision SQL users when they first authenticate via JWT:
 
 ```sql
--- Check current HBA rules
+SET CLUSTER SETTING security.provisioning.jwt.enabled = true;
+```
+
+When enabled, a SQL user is automatically created for authenticated JWT users who do not yet have an account.
+
+#### 3.5 Test SQL/Cluster SSO
+
+```bash
+# Obtain a JWT token from your IdP (method varies by IdP)
+# Then connect using the token as the password with JWT auth enabled
+cockroach sql --url "postgresql://<username>@<cluster-host>:26257/defaultdb?sslmode=verify-full&options=--crdb:jwt_auth_enabled=true" --external-io-implicit-credentials
+```
+
+The JWT token is passed as the password. The `--crdb:jwt_auth_enabled=true` connection option tells CockroachDB to treat the password as a JWT token.
+
+```sql
+-- Verify the connection
+SELECT current_user();
+```
+
+### Part 4: LDAP/AD Authentication
+
+LDAP/AD authentication validates SQL credentials directly against an LDAP directory (Active Directory or OpenLDAP). **Self-hosted only** — not available on CockroachDB Cloud.
+
+> **WARNING — HBA first-match-wins:** HBA rules are evaluated top-to-bottom. The first matching rule is used. A rule like `host all all all ldap ...` matches ALL users from ALL addresses and will prevent password fallback for any user. **Always scope LDAP rules to specific users or roles** to avoid locking out admin accounts.
+
+#### 4.1 Check Current HBA Configuration
+
+```sql
 SHOW CLUSTER SETTING server.host_based_authentication.configuration;
 ```
 
-##### 2B.2 Configure LDAP Authentication via HBA
+#### 4.2 Configure LDAP Authentication via HBA
 
-LDAP authentication is configured through HBA (Host-Based Authentication) rules. The HBA rule specifies the LDAP server, search base, and attribute to match.
+LDAP authentication is configured through HBA (Host-Based Authentication) rules. **Always scope LDAP rules** to specific databases or users — never use `host all all all ldap`.
 
 ```sql
--- Configure HBA for LDAP authentication with a password fallback
+-- Configure HBA for LDAP authentication scoped to specific users
+-- The 'root' user and other admin users keep password auth
 SET CLUSTER SETTING server.host_based_authentication.configuration = '
-host all all all ldap ldapserver=ldap.example.com ldapport=389 ldapbasedn="dc=example,dc=com" ldapsearchattribute=uid ldapbinddn="cn=readonly,dc=example,dc=com" ldapbindpasswd="<bind-password>"
+host all root all password
+host all admin_user all password
+host all all all ldap "ldapserver=ldap.example.com" "ldapport=389" "ldapbasedn=dc=example,dc=com" "ldapsearchattribute=uid" "ldapsearchfilter=(objectClass=inetOrgPerson)" "ldapbinddn=cn=readonly,dc=example,dc=com" "ldapbindpasswd=<bind-password>"
 host all all all password
 ';
 ```
@@ -202,41 +316,63 @@ Key LDAP HBA parameters:
 - `ldapport` — LDAP server port (389 for LDAP, 636 for LDAPS)
 - `ldapbasedn` — Base DN for user search
 - `ldapsearchattribute` — Attribute matching the SQL username (e.g., `uid` for OpenLDAP, `sAMAccountName` for AD)
+- `ldapsearchfilter` — **Required.** LDAP filter to narrow the user search (e.g., `(objectClass=inetOrgPerson)`)
 - `ldapbinddn` — DN of the service account used for LDAP bind/search
 - `ldapbindpasswd` — Password for the bind DN service account
 
+> **Important:** Each HBA option must be quoted as `"key=value"` (the entire key=value pair in one set of quotes).
+
 See [configuration steps reference](references/configuration-steps.md) for Active Directory, OpenLDAP, group mapping, and LDAPS examples.
 
-##### 2B.3 Use LDAPS (TLS) for Production
+#### 4.3 Use LDAPS (TLS) for Production
 
-For production environments, always use LDAPS (LDAP over TLS) to encrypt credentials in transit:
+For production environments, always use LDAPS (LDAP over TLS on port 636) to encrypt credentials in transit. Do NOT use `ldaptls=1` — this option is not supported. Instead, use port 636 and configure the custom CA certificate:
 
 ```sql
+-- Configure the LDAP CA certificate for TLS verification
+SET CLUSTER SETTING server.ldap_authentication.domain.custom_ca = '-----BEGIN CERTIFICATE-----
+<your-ldap-ca-certificate-pem>
+-----END CERTIFICATE-----';
+
+-- Set HBA to use LDAPS (port 636)
 SET CLUSTER SETTING server.host_based_authentication.configuration = '
-host all all all ldap ldapserver=ldap.example.com ldapport=636 ldaptls=1 ldapbasedn="dc=example,dc=com" ldapsearchattribute=uid ldapbinddn="cn=readonly,dc=example,dc=com" ldapbindpasswd="<bind-password>"
+host all root all password
+host all admin_user all password
+host all all all ldap "ldapserver=ldap.example.com" "ldapport=636" "ldapbasedn=dc=example,dc=com" "ldapsearchattribute=uid" "ldapsearchfilter=(objectClass=inetOrgPerson)" "ldapbinddn=cn=readonly,dc=example,dc=com" "ldapbindpasswd=<bind-password>"
 host all all all password
 ';
 ```
 
-##### 2B.4 Configure LDAP Group-to-Role Mapping (v24.3+)
+#### 4.4 Configure LDAP Group-to-Role Mapping
 
-LDAP group mapping allows CockroachDB to assign SQL roles based on LDAP/AD group membership:
+LDAP group mapping assigns CockroachDB SQL roles based on LDAP/AD group membership. Group mapping is configured via the `ldapgrouplistfilter` HBA parameter — not via cluster settings.
 
 ```sql
--- Enable LDAP authorization
-SET CLUSTER SETTING server.ldap_authorization.enabled = true;
-
--- Configure the LDAP group lookup filter
-SET CLUSTER SETTING server.ldap_authorization.group_list_filter = '(&(objectClass=group)(member={{.User.DN}}))';
-
--- Configure the group search base DN
-SET CLUSTER SETTING server.ldap_authorization.group_search_base_dn = 'ou=Groups,dc=example,dc=com';
-
--- Configure the attribute containing the group name (mapped to SQL role)
-SET CLUSTER SETTING server.ldap_authorization.group_search_attribute = 'cn';
+-- HBA with group-to-role mapping
+SET CLUSTER SETTING server.host_based_authentication.configuration = '
+host all root all password
+host all admin_user all password
+host all all all ldap "ldapserver=ad.corp.example.com" "ldapport=636" "ldapbasedn=ou=Users,dc=corp,dc=example,dc=com" "ldapsearchattribute=sAMAccountName" "ldapsearchfilter=(objectClass=user)" "ldapbinddn=cn=crdb-svc,ou=ServiceAccounts,dc=corp,dc=example,dc=com" "ldapbindpasswd=<service-account-password>" "ldapgrouplistfilter=(&(objectClass=group)(member={{.User.DN}}))"
+host all all all password
+';
 ```
 
-##### 2B.5 Test LDAP Authentication
+The LDAP group CN is mapped directly to a SQL role name. The role must already exist in CockroachDB:
+
+```sql
+CREATE ROLE IF NOT EXISTS db_admins;
+GRANT admin TO db_admins;
+```
+
+#### 4.5 Enable Auto User Provisioning (Optional)
+
+Auto-provision SQL users when they first authenticate via LDAP:
+
+```sql
+SET CLUSTER SETTING security.provisioning.ldap.enabled = true;
+```
+
+#### 4.6 Test LDAP Authentication
 
 ```bash
 # Test with an LDAP user credential
@@ -251,28 +387,28 @@ SELECT current_user();
 SHOW GRANTS FOR <ldap-username>;
 ```
 
-### Part 3: SCIM 2.0 on Cloud Console
+### Part 5: SCIM 2.0 on Cloud Console
 
 > **Skip this section** if the user does not need automated user provisioning or does not have an Enterprise plan.
 
 SCIM 2.0 enables automated user provisioning and deprovisioning on the Cloud Console, syncing user lifecycle with your IdP.
 
-#### 3.1 Check Current SCIM Configuration
+#### 5.1 Check Current SCIM Configuration
 
 Check SCIM status in the Cloud Console UI (Organization Settings > Authentication > SCIM). The `ccloud` CLI does not currently expose SCIM configuration commands.
 
-#### 3.2 Enable SCIM Endpoint
+#### 5.2 Enable SCIM Endpoint
 
 1. Navigate to **Organization Settings > Authentication > SCIM** in the Cloud Console
 2. Enable the SCIM 2.0 endpoint
 3. Copy the **SCIM base URL** and **Bearer token** for IdP configuration
 
-#### 3.3 Configure IdP for SCIM
+#### 5.3 Configure IdP for SCIM
 
 In your IdP (Okta, Azure AD, etc.):
 
 1. Add a new SCIM provisioning integration
-2. Enter the SCIM base URL from step 3.2
+2. Enter the SCIM base URL from step 5.2
 3. Enter the Bearer token for authentication
 4. Configure provisioning actions:
    - **Create users** — New IdP users are created in CockroachDB Cloud
@@ -282,55 +418,12 @@ In your IdP (Okta, Azure AD, etc.):
 
 See [configuration steps reference](references/configuration-steps.md) for IdP-specific SCIM setup.
 
-#### 3.4 Verify SCIM Provisioning
+#### 5.4 Verify SCIM Provisioning
 
 1. Create a test user in your IdP and assign them to the SCIM integration
 2. Check the Cloud Console — the user should appear within a few minutes
 3. Remove the test user from the IdP SCIM assignment
 4. Verify the user is deactivated in the Cloud Console
-
-### Part 4: Auto User Provisioning on Database
-
-Auto user provisioning creates SQL users automatically from IdP identities when they first connect via SSO. This applies to OIDC-based database SSO (Option A in Part 2).
-
-#### 4.1 Check Current Identity Mapping
-
-```sql
--- Check identity mapping configuration
-SHOW CLUSTER SETTING server.identity_map.configuration;
-```
-
-#### 4.2 Configure Identity Mapping
-
-```sql
--- Map IdP identities to SQL users
--- Format: <map-name> <system-identity-regex> <database-user>
-SET CLUSTER SETTING server.identity_map.configuration = '
-crdb /^(.*)@example\.com$ \1
-';
-```
-
-This maps `user@example.com` from the IdP to SQL user `user`.
-
-#### 4.3 Enable Auto User Creation
-
-When combined with Cluster SSO (Part 2, Option A), users authenticated via SSO who do not yet have a SQL user account will be automatically created.
-
-```sql
--- Verify HBA configuration includes identity mapping
-SET CLUSTER SETTING server.host_based_authentication.configuration = '
-host all all all jwt-token map=crdb
-host all all all password
-';
-```
-
-#### 4.4 Test Auto Provisioning
-
-1. Authenticate a new IdP user via Cluster SSO
-2. Verify the SQL user was created:
-```sql
-SELECT username FROM [SHOW USERS] WHERE username = '<expected-username>';
-```
 
 ## Troubleshooting
 
@@ -347,66 +440,69 @@ If SSO is enforced and the IdP becomes unavailable or misconfigured:
 ### JWT Authentication Errors
 
 **"ERROR: JWT authentication: invalid token"**
-- Verify the OIDC provider URL is correct and accessible
+- Verify the JWT issuer configuration in `server.jwt_authentication.issuers.configuration`
 - Check that the JWT token has not expired
-- Verify the `claim_json_key` and `principal_regex` settings match your IdP's token format
+- Verify that `server.jwt_authentication.jwks_auto_fetch.enabled` is `true`
 - Inspect the token contents: `echo '<token>' | cut -d. -f2 | base64 -d | jq .`
+- Verify the `aud` (audience) claim in the token matches the configured audience
 
 **"ERROR: JWT authentication: issuer not configured"**
-- The `server.oidc_authentication.provider_url` may have changed or been reset
-- Re-apply the OIDC cluster settings (see Part 2, Option A above)
+- The issuer URL in the token does not match `server.jwt_authentication.issuers.configuration`
+- Re-check the issuer URL matches exactly (trailing slashes matter)
 
-### OIDC Principal Regex Issues
+### DB Console OIDC Errors
 
 **"OIDC: unable to match principal"**
-- The `principal_regex` does not match the claim value from the token
+- The `server.oidc_authentication.principal_regex` does not match the claim value from the token
 - Test the regex against the actual claim value:
 
 ```sql
--- Check current regex
 SHOW CLUSTER SETTING server.oidc_authentication.principal_regex;
-
 -- Common patterns:
 -- Email -> username (strip domain): '^([^@]+)'
 -- Full email as username: '^(.+)$'
--- Domain prefix: '^([^@]+)@example\.com$'
 ```
 
 **Complex regex not accepted:**
-- CockroachDB uses Go's `regexp` syntax, which differs from PCRE
-- Lookaheads and lookbehinds are not supported
-- Test the regex at https://regex101.com/ with the "Golang" flavor
+- CockroachDB uses Go's `regexp` syntax (no lookaheads/lookbehinds)
+- Test at https://regex101.com/ with the "Golang" flavor
 
 ### LDAP Authentication Errors
 
-**"ERROR: LDAP authentication: unable to bind"** — Verify the `ldapbinddn` and `ldapbindpasswd` are correct. Check that the bind service account has read access to the user search base. Test with: `ldapsearch -H ldap://ldap.example.com -D "cn=readonly,dc=example,dc=com" -W -b "dc=example,dc=com" "(uid=testuser)"`
+**"ERROR: LDAP authentication: unable to bind"**
+- Verify `ldapbinddn` and `ldapbindpasswd` are correct
+- Check that the bind service account has read access to the user search base
+- Test with: `ldapsearch -H ldap://ldap.example.com -D "cn=readonly,dc=example,dc=com" -W -b "dc=example,dc=com" "(uid=testuser)"`
 
-**"ERROR: LDAP authentication: user not found"** — Verify `ldapbasedn` includes the OU where the user resides. Check that `ldapsearchattribute` matches the login attribute (`uid` for OpenLDAP, `sAMAccountName` for AD).
+**"ERROR: LDAP authentication: user not found"**
+- Verify `ldapbasedn` includes the OU where the user resides
+- Check that `ldapsearchattribute` matches the login attribute (`uid` for OpenLDAP, `sAMAccountName` for AD)
+- **Check that `ldapsearchfilter` is set** — without it, LDAP user search will fail
 
-**LDAP server unreachable** — Verify network connectivity from CockroachDB nodes to the LDAP server. For LDAPS, ensure the TLS certificate is trusted. Check firewall rules for port 389 (LDAP) or 636 (LDAPS).
+**LDAP lockout — all users blocked**
+- This happens when an overly broad HBA rule like `host all all all ldap ...` is the first rule and the LDAP server is unreachable, or the LDAP config is wrong
+- **Fix:** Ensure `root` and admin users have explicit `password` rules BEFORE any `ldap` rule
+- **Recovery:** Connect as `root` using client certificate auth (bypasses HBA) and fix the HBA configuration
+
+**LDAP server unreachable**
+- Verify network connectivity from CockroachDB nodes to the LDAP server
+- For LDAPS, ensure the CA certificate is configured via `server.ldap_authentication.domain.custom_ca`
+- Check firewall rules for port 389 (LDAP) or 636 (LDAPS)
 
 ### Azure AD / Entra ID Specific Issues
 
 **Token audience mismatch:**
-- Azure AD tokens include an `aud` claim that must match the `client_id`
-- Ensure the App Registration's Application ID URI matches if using a custom audience
-- For standard setup, the `client_id` in CockroachDB settings should match the Azure AD Application (client) ID
+- Azure AD tokens include an `aud` claim that must match the configured audience
+- For JWT SQL SSO: ensure the audience in `server.jwt_authentication.issuers.configuration` matches
+- For DB Console OIDC: ensure `server.oidc_authentication.client_id` matches
 
 **Multi-tenant vs single-tenant:**
-- For single-tenant: use `https://login.microsoftonline.com/<tenant-id>/v2.0` as the provider URL
+- For single-tenant: use `https://login.microsoftonline.com/<tenant-id>/v2.0` as the issuer
 - For multi-tenant: use `https://login.microsoftonline.com/common/v2.0` (requires additional validation)
 
-**Group claims for role mapping:**
-- Azure AD can include group memberships in the JWT token
-- Enable "Groups claim" in the App Registration > Token Configuration
-- Map Azure AD groups to CockroachDB roles via identity mapping
+### Missing ldapsearchfilter
 
-### SSO + Roles Interaction
-
-**"SSO User Roles: UI does not show roles inherited from user groups"**
-- Cloud Console roles assigned via SCIM groups may not display in the individual user's role list
-- Check the group assignments: the user's effective role is the union of direct and group-inherited roles
-- Verify in SCIM logs that group membership changes are syncing correctly
+If LDAP authentication fails with "user not found" errors but the user exists in the directory, check whether `ldapsearchfilter` is included in the HBA rule. This parameter is required and without it the LDAP search may fail silently or return no results.
 
 ## Safety Considerations
 
@@ -416,20 +512,38 @@ SHOW CLUSTER SETTING server.oidc_authentication.principal_regex;
 1. Before enforcing SSO, ensure at least one organization admin account uses password authentication
 2. Document the break-glass account credentials in a secure vault (e.g., 1Password, HashiCorp Vault)
 3. Test the break-glass account periodically to ensure it still works
-4. For Database SSO, keep at least one SQL user with password authentication as a fallback
+4. For SQL SSO (JWT or LDAP), keep at least one SQL user with password authentication as a fallback
+
+**HBA first-match-wins — lockout risk:**
+HBA rules are evaluated top-to-bottom. The first matching rule wins. This means:
+- `host all all all ldap ...` as the first rule will force ALL users through LDAP — including `root`
+- If the LDAP server goes down, ALL authentication fails (including admin access)
+- **Always place password rules for `root` and admin users BEFORE LDAP rules**
+
+Example of a dangerous configuration:
+```
+# DANGEROUS — locks out root if LDAP is unavailable
+host all all all ldap ...
+host all all all password
+```
+
+Safe configuration:
+```
+# SAFE — root and admins always have password fallback
+host all root all password
+host all admin_user all password
+host all all all ldap ...
+host all all all password
+```
 
 **SCIM risks:**
 - **Mass deprovisioning:** If the IdP SCIM assignment is accidentally removed, all provisioned users may be deactivated. Start with a small group before enabling for the full organization.
 - **Attribute mapping errors:** Incorrect attribute mapping can create users with wrong names or emails. Test with a single user first.
 
-**Database SSO risks (OIDC):**
-- **HBA misconfiguration:** Incorrect HBA rules can block all SQL authentication. Always keep a password-based fallback rule.
-- **Identity mapping errors:** Incorrect regex can map users to wrong SQL accounts or fail to match. Test with known identities first.
-
-**Database SSO risks (LDAP/AD):**
-- **LDAP server unavailability blocks authentication:** If the LDAP server is down, users authenticating via LDAP cannot connect. Always keep a password-based fallback HBA rule after the LDAP rule.
-- **Use a restricted service account for LDAP bind:** The `ldapbinddn` account should have minimal read-only permissions — only enough to search for user entries. Never use a domain admin account.
-- **Credential exposure without LDAPS:** LDAP without TLS transmits passwords in cleartext. Always use LDAPS (`ldaptls=1`, port 636) in production.
+**LDAP/AD risks:**
+- **LDAP server unavailability blocks authentication:** If the LDAP server is down, users authenticating via LDAP cannot connect. Always keep password-based fallback HBA rules for admin users.
+- **Use a restricted service account for LDAP bind:** The `ldapbinddn` account should have minimal read-only permissions. Never use a domain admin account.
+- **Credential exposure without LDAPS:** LDAP without TLS transmits passwords in cleartext. Always use LDAPS (port 636) with `server.ldap_authentication.domain.custom_ca` in production.
 
 ## Rollback
 
@@ -438,30 +552,36 @@ SHOW CLUSTER SETTING server.oidc_authentication.principal_regex;
 1. Log in with the break-glass admin account
 2. Navigate to **Organization Settings > Authentication**
 3. Disable **Require SSO** to re-enable password login
-4. Users can now log in with passwords again
 
-### Disable Database SSO (OIDC)
+### Disable DB Console SSO (OIDC)
 
 ```sql
--- Disable OIDC authentication
 SET CLUSTER SETTING server.oidc_authentication.enabled = false;
-
--- Restore password-only HBA configuration
-SET CLUSTER SETTING server.host_based_authentication.configuration = '
-host all all all password
-';
 ```
 
-### Disable Database SSO (LDAP/AD)
+### Disable SQL/Cluster SSO (JWT)
+
+```sql
+SET CLUSTER SETTING server.jwt_authentication.enabled = false;
+```
+
+### Disable LDAP/AD Authentication
 
 ```sql
 -- Revert HBA to password-only authentication
 SET CLUSTER SETTING server.host_based_authentication.configuration = '
 host all all all password
 ';
+```
 
--- If LDAP group mapping was enabled, disable it
-SET CLUSTER SETTING server.ldap_authorization.enabled = false;
+### Disable Auto User Provisioning
+
+```sql
+-- Disable JWT auto-provisioning
+SET CLUSTER SETTING security.provisioning.jwt.enabled = false;
+
+-- Disable LDAP auto-provisioning
+SET CLUSTER SETTING security.provisioning.ldap.enabled = false;
 ```
 
 ### Disable SCIM
@@ -469,12 +589,10 @@ SET CLUSTER SETTING server.ldap_authorization.enabled = false;
 1. Navigate to **Organization Settings > Authentication > SCIM**
 2. Disable the SCIM endpoint
 3. Remove the SCIM integration from your IdP
-4. Manually manage user provisioning/deprovisioning going forward
 
 ### Remove Identity Mapping
 
 ```sql
--- Clear identity mapping
 SET CLUSTER SETTING server.identity_map.configuration = '';
 ```
 
@@ -490,10 +608,11 @@ SET CLUSTER SETTING server.identity_map.configuration = '';
 
 **Official CockroachDB Documentation:**
 - [Cloud Console SSO](https://www.cockroachlabs.com/docs/cockroachcloud/cloud-org-sso.html)
-- [Cluster SSO (Database SSO)](https://www.cockroachlabs.com/docs/stable/sso-sql.html)
+- [DB Console SSO](https://www.cockroachlabs.com/docs/stable/sso-db-console.html)
+- [Cluster SSO (JWT)](https://www.cockroachlabs.com/docs/stable/sso-sql.html)
 - [SCIM Provisioning](https://www.cockroachlabs.com/docs/cockroachcloud/configure-scim-provisioning)
 - [Cluster Settings](https://www.cockroachlabs.com/docs/stable/cluster-settings.html)
 - [HBA Configuration](https://www.cockroachlabs.com/docs/stable/security-reference/authentication.html)
 - [JWT Authentication](https://www.cockroachlabs.com/docs/stable/sso-sql.html)
-- [LDAP Authorization](https://www.cockroachlabs.com/docs/stable/ldap-authorization)
+- [LDAP Authentication](https://www.cockroachlabs.com/docs/stable/ldap-authentication)
 - [Authentication Reference](https://www.cockroachlabs.com/docs/stable/security-reference/authentication)
