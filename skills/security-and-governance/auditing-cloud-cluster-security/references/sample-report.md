@@ -6,10 +6,10 @@ Use this as a template when producing audit reports. Replace all values with act
 
 ---
 
-# Security Audit Report — biplav-security-test
+# Security Audit Report — example-dev-cluster
 
 **Date:** 2026-02-23
-**Cluster ID:** cacfb96c-df20-4c9a-abdf-3235d50b7256
+**Cluster ID:** xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 **Plan:** Basic
 **CockroachDB Version:** v25.4.5
 **Cloud Provider:** AWS
@@ -91,7 +91,7 @@ SQL users are not automatically provisioned from IdP identities. Users must be c
 
 | Admin User | Member Of |
 |------------|-----------|
-| biplav | {admin} |
+| cluster_admin | {admin} |
 | root | {admin} |
 | test_admin_1 | {admin} |
 | test_admin_2 | {admin} |
@@ -190,7 +190,7 @@ CockroachDB Cloud automatically manages backups for all clusters. No user config
 
 | Property | Value |
 |----------|-------|
-| Name | biplav-security-test |
+| Name | example-dev-cluster |
 | Plan | Basic |
 | Cloud Provider | AWS |
 | Region | us-east-1 |
