@@ -4,14 +4,66 @@ This guide shows you how to install CockroachDB Skills for use with Claude Code.
 
 ## Prerequisites
 
-- **Claude Code** - [Download and install Claude Code](https://claude.ai/download)
+**For Option 1 (npx):**
+- **Node.js 18+** - [Download from nodejs.org](https://nodejs.org/)
+
+**For manual installation (Options 2-4):**
+- **Claude Code** (or another supported agent) - [Download and install Claude Code](https://claude.ai/download)
 - **Git** - For cloning the repository
 
 ## Installation Options
 
 Choose the approach that fits your workflow:
 
-### Option 1: Project-Level Installation (Recommended for Teams)
+### Option 1: Quick Install with npx (Recommended)
+
+**The easiest way to get started.** This interactive installer works with Claude Code, Cursor, Windsurf, OpenHands, and 40+ other agents.
+
+**Prerequisites:**
+- Node.js 18+ (for npx command)
+
+**Installation:**
+```bash
+npx skills add cockroachlabs/cockroachdb-skills
+```
+
+**What this does:**
+1. Fetches available skills from the repository
+2. Shows you a list of all 29+ CockroachDB skills
+3. Lets you select which skills to install (or install all with `--all`)
+4. Detects your installed AI agents automatically
+5. Installs skills to the appropriate directories with symlinks
+6. Works project-level (default) or user-level with `--global`
+
+**Interactive Mode:**
+The installer will:
+- Detect which agents you have installed (Claude Code, Cursor, etc.)
+- Let you choose which skills to install
+- Ask whether to install project-level or user-level
+- Handle all directory creation and symlinking automatically
+
+**Non-Interactive Mode:**
+For automated setups or CI/CD:
+```bash
+# Install all skills for Claude Code, skip prompts
+npx skills add cockroachlabs/cockroachdb-skills --agent claude-code --skill '*' --yes
+
+# Install specific skills globally
+npx skills add cockroachlabs/cockroachdb-skills --global --skill reviewing-cluster-health --yes
+```
+
+**Supported Agents:**
+Works with 43+ agents including Claude Code, Cursor, Windsurf, Cline, OpenHands, Roo Code, GitHub Copilot, and more.
+
+**When to use this option:**
+- ✅ You want the simplest installation experience
+- ✅ You have Node.js installed
+- ✅ You want skills across multiple agents
+- ✅ You prefer automated setup
+
+---
+
+### Option 2: Project-Level Manual Installation
 
 Skills are available only within a specific project directory.
 
@@ -31,7 +83,7 @@ mkdir -p .claude/skills
 ln -s /path/to/cockroachdb-skills/skills .claude/skills/cockroachdb-skills
 ```
 
-### Option 2: User-Level Installation (Global Access)
+### Option 3: User-Level Manual Installation (Global Access)
 
 Skills are available in all Claude Code sessions, across all projects.
 
@@ -48,7 +100,7 @@ mkdir -p ~/.claude/skills
 ln -s /path/to/cockroachdb-skills/skills ~/.claude/skills/cockroachdb-skills
 ```
 
-### Option 3: Direct Copy (Without Symlinks)
+### Option 4: Direct Copy (Without Symlinks)
 
 For environments where symbolic links aren't supported (some Windows configurations).
 
@@ -104,6 +156,46 @@ Claude should use the `reviewing-cluster-health` skill to provide guidance.
 
 ## Troubleshooting
 
+### npx Command Not Found
+
+**Problem:** `npx: command not found`
+
+**Solutions:**
+1. Install Node.js 18+ from [nodejs.org](https://nodejs.org/)
+2. Verify installation: `node --version && npx --version`
+3. Restart your terminal after installation
+
+### npx Installation Fails
+
+**Problem:** Installation fails or hangs.
+
+**Solutions:**
+1. **Check network connectivity** - The CLI needs to fetch from GitHub
+2. **Verify repository is public** - Ensure you can access https://github.com/cockroachlabs/cockroachdb-skills
+3. **Try with verbose logging:**
+   ```bash
+   npx skills add cockroachlabs/cockroachdb-skills --verbose
+   ```
+4. **Clear npm cache:**
+   ```bash
+   npm cache clean --force
+   npx skills add cockroachlabs/cockroachdb-skills
+   ```
+
+### No Agents Detected
+
+**Problem:** npx installer says "No agents detected"
+
+**Solutions:**
+1. **Install an AI agent first** (Claude Code, Cursor, etc.)
+2. **Manually specify the agent:**
+   ```bash
+   npx skills add cockroachlabs/cockroachdb-skills --agent claude-code
+   ```
+3. **Check agent-specific directories exist:**
+   - Claude Code: `~/.claude/` or `.claude/`
+   - Cursor: `~/.cursor/` or `.cursor/`
+
 ### Skills Not Discovered
 
 **Problem:** Claude doesn't recognize the CockroachDB skills.
@@ -148,7 +240,7 @@ Claude should use the `reviewing-cluster-health` skill to provide guidance.
 
 **Problem:** Your environment doesn't support symbolic links.
 
-**Solution:** Use [Option 3: Direct Copy](#option-3-direct-copy-without-symlinks) instead.
+**Solution:** Use [Option 4: Direct Copy](#option-4-direct-copy-without-symlinks) instead.
 
 ### Skills Appear Outdated
 
@@ -181,7 +273,15 @@ cp -r skills ~/.claude/skills/cockroachdb-skills
 
 ## Updating Skills
 
-### With Symlinks (Options 1 & 2)
+### With npx (Option 1)
+
+Simply run the installation command again to get the latest skills:
+
+```bash
+npx skills add cockroachlabs/cockroachdb-skills --yes
+```
+
+### With Symlinks (Options 2 & 3)
 
 Simply pull the latest changes from the repository:
 
@@ -192,7 +292,7 @@ git pull origin main
 
 The symlink ensures Claude Code automatically uses the updated skills.
 
-### With Direct Copy (Option 3)
+### With Direct Copy (Option 4)
 
 After pulling updates, re-copy the skills:
 
@@ -200,7 +300,7 @@ After pulling updates, re-copy the skills:
 cd /path/to/cockroachdb-skills
 git pull origin main
 
-# Then copy to your installation location (see Option 3 above)
+# Then copy to your installation location (see Option 4 above)
 ```
 
 ## Uninstalling
