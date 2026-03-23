@@ -10,7 +10,7 @@ A curated collection of **Agent Skills** for CockroachDB—structured, machine-e
 
 ## For Users
 
-**Want to use these skills with Claude Code?**
+**Want to use these skills with your AI agent?**
 
 → [Installation Guide](docs/installation.md) - Get started in 5 minutes
 → [Usage Guide](docs/usage.md) - Discover and invoke skills
