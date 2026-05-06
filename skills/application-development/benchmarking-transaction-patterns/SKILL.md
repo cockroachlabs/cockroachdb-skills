@@ -13,81 +13,42 @@ Guides users through benchmarking, explaining, and comparing two formulations of
 
 **Complement to design skills:** For general transaction design principles, see [designing-application-transactions](../designing-application-transactions/SKILL.md). For SQL syntax and query patterns, see [cockroachdb-sql](../../query-and-schema-design/cockroachdb-sql/SKILL.md).
 
-## When to Use This Skill
-
-- Comparing explicit multi-statement transactions versus CTE-based single-statement transactions
-- Benchmarking CockroachDB workloads under high concurrency or hot-key contention
-- Investigating retry pressure, p95/p99 latency, or throughput differences between transaction formulations
-- Deciding whether to rewrite a multi-step application flow into a single SQL statement
-- Setting up a fair side-by-side benchmark with proper reset discipline
-- Interpreting benchmark results (throughput, retries, tail latency, failures)
-- Explaining why SQL Activity still shows waiting even with CTE transactions
-
-## Prerequisites
-
-- CockroachDB test cluster (do not benchmark on production)
-- SQL client or JDBC driver for benchmark execution
-- Understanding of CockroachDB SERIALIZABLE isolation and retry behavior
-- Familiarity with basic concurrency testing concepts
-
 ## Core Concept
 
-When two implementations perform the same business behavior, the transaction formulation itself can be a primary performance lever under contention.
+Under contention, the transaction formulation itself is a primary performance lever. The **explicit model** (multi-statement `BEGIN`/`COMMIT`) keeps the transaction open across round trips, widening the contention window. The **CTE model** (single-statement) collapses the same logic into one atomic statement, reducing transaction duration and retries.
 
 ### Explicit Transaction Model
 
-The application orchestrates the workflow as separate SQL statements inside a transaction: read state, apply logic, write changes, commit.
-
 ```sql
 BEGIN;
-
 SELECT balance FROM accounts WHERE id = $1;
-
 -- Application decides whether transfer is allowed
-
 UPDATE accounts SET balance = balance - $2 WHERE id = $1;
 UPDATE accounts SET balance = balance + $2 WHERE id = $3;
-
 INSERT INTO transfers (from_acct, to_acct, amount, created_at)
 VALUES ($1, $3, $2, now());
-
 COMMIT;
 ```
 
-This keeps the transaction open across multiple statements and often includes application-side decision logic between steps.
-
 ### CTE Transaction Model
 
-The same read/decision/write logic is expressed as a single SQL statement, so the database evaluates and applies the business operation atomically without intermediate client orchestration.
+CockroachDB rejects multiple mutations of the same table in a single statement by default (`sql.multiple_modifications_of_table.enabled`), so the debit and credit are folded into one `UPDATE` using `CASE`.
 
 ```sql
-WITH debit AS (
+WITH funded AS (
+  SELECT 1 FROM accounts WHERE id = $1 AND balance >= $2
+), upd AS (
   UPDATE accounts
-  SET balance = balance - $2
-  WHERE id = $1
-    AND balance >= $2
-  RETURNING id
-), credit AS (
-  UPDATE accounts
-  SET balance = balance + $2
-  WHERE id = $3
-    AND EXISTS (SELECT 1 FROM debit)
+  SET balance = CASE WHEN id = $1 THEN balance - $2 ELSE balance + $2 END
+  WHERE id IN ($1, $3) AND EXISTS (SELECT 1 FROM funded)
   RETURNING id
 ), ins AS (
   INSERT INTO transfers (from_acct, to_acct, amount, created_at)
-  SELECT $1, $3, $2, now()
-  WHERE EXISTS (SELECT 1 FROM debit)
-    AND EXISTS (SELECT 1 FROM credit)
+  SELECT $1, $3, $2, now() WHERE (SELECT count(*) FROM upd) = 2
   RETURNING id
 )
 SELECT id FROM ins;
 ```
-
-### Why CTE Tends to Win Under Contention
-
-The explicit version keeps the transaction open across multiple statements, increasing the time window for write conflicts, timestamp pushes, and retries. Under high concurrency, each retry repeats the read and write work and continues contending for the same hot data.
-
-The CTE version collapses the same business logic into a single atomic statement, reducing transaction duration and sharply narrowing the contention window.
 
 ## Steps
 
@@ -125,7 +86,25 @@ ON CONFLICT (id) DO UPDATE SET balance = 1000.00;
 
 ### 3. Run the Explicit Transaction Benchmark
 
-Execute with realistic concurrency (e.g., 64-128 workers) and a fixed duration or iteration count. Record throughput, retries, p50/p95/p99 latency, max latency, and failures.
+Execute with realistic concurrency. Example using `pgbench` (PostgreSQL-compatible):
+
+```bash
+# Create a pgbench script file: explicit_transfer.sql
+# \set from_id random(1, 10000)
+# \set to_id random(1, 10000)
+# \set amount 10.00
+# BEGIN;
+# SELECT balance FROM accounts WHERE id = :from_id;
+# UPDATE accounts SET balance = balance - :amount WHERE id = :from_id;
+# UPDATE accounts SET balance = balance + :amount WHERE id = :to_id;
+# INSERT INTO transfers (from_acct, to_acct, amount, created_at) VALUES (:from_id, :to_id, :amount, now());
+# COMMIT;
+
+pgbench -n -c 64 -j 8 -T 120 -f explicit_transfer.sql \
+  "postgresql://root@localhost:26257/bankbench?sslmode=disable"
+```
+
+Record throughput (tps), retries, p50/p95/p99 latency, max latency, and failures.
 
 ### 4. Reset Between Runs for Fair Comparison
 
@@ -137,7 +116,13 @@ UPDATE accounts SET balance = 1000.00;
 
 ### 5. Run the CTE Transaction Benchmark
 
-Execute with the same concurrency, duration, and parameters as the explicit run.
+Execute with the same concurrency, duration, and parameters as the explicit run:
+
+```bash
+# Create a pgbench script file: cte_transfer.sql containing the CTE query above
+pgbench -n -c 64 -j 8 -T 120 -f cte_transfer.sql \
+  "postgresql://root@localhost:26257/bankbench?sslmode=disable"
+```
 
 ### 6. Compare Results
 
@@ -152,6 +137,20 @@ Always compare these metrics side by side:
 | p99 latency        | Worst-case tail; explicit model often shows spikes               |
 | Max latency        | Outlier behavior                                                 |
 | Failures           | Non-retryable errors                                             |
+
+### 7. Validate Benchmark Integrity
+
+Before interpreting results, verify the benchmark ran cleanly:
+
+```sql
+-- Confirm expected transfer volume
+SELECT COUNT(*) AS total_transfers FROM transfers;
+```
+
+```bash
+# Check node liveness and start times (no node restarts mid-benchmark)
+cockroach node status --certs-dir=<certs-dir>     # or --insecure for an insecure cluster
+```
 
 ## Benchmark Reference Results
 
@@ -202,11 +201,9 @@ Extended runs preserved the same directional result at higher total volume, with
 
 ## Common Misconceptions
 
-**"CTE always wins in every workload"** — No. The claim is narrower: when the same business workflow can be expressed as a single atomic statement and the workload is contention-sensitive, collapsing the transaction shape can materially improve performance and stability.
-
-**"SQL Activity showing waiting means CTE failed"** — Single-statement CTE execution does not eliminate contention. Statements can still wait on row conflicts, write intents, latches, or scheduling. The right comparison is overall throughput, tail latency, and retry profile.
-
-**"Single-statement means no contention"** — A CTE can still wait under contention. The benefit is a narrower contention window, not the elimination of contention.
+- **"CTE always wins"** — Only when the workflow is contention-sensitive and expressible as a single atomic statement.
+- **"SQL Activity showing waiting means CTE failed"** — CTE reduces but does not eliminate contention. Compare throughput, tail latency, and retry profile.
+- **"Single-statement means no contention"** — CTE narrows the contention window but does not eliminate it.
 
 ## Safety Considerations
 

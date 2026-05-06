@@ -11,90 +11,19 @@ metadata:
 
 Monitors background job health by identifying failed, paused, and long-running jobs that are distinct from user queries. Uses SQL-only interfaces (SHOW JOBS and SHOW AUTOMATIC JOBS) to surface schema changes, backups/restores, automatic statistics collection, and SQL stats compaction without requiring DB Console access.
 
-## When to Use This Skill
-
-- Schema changes appear stuck or delayed (ALTER TABLE, CREATE INDEX, DROP operations)
-- Backups or restores are failing or taking longer than expected
-- Need to verify automatic statistics collection is running
-- Investigating "waiting for MVCC GC" status in schema change cleanup
-- Troubleshooting failed jobs without DB Console access
-- Monitoring long-running operations that don't appear in query metrics
-
-**For live query monitoring:** Use [triaging-live-sql-activity](../triaging-live-sql-activity/SKILL.md) to monitor currently executing user queries. Note that background jobs execute statements that may not appear in SHOW CLUSTER STATEMENTS.
-
-**For historical query analysis:** Use [profiling-statement-fingerprints](../profiling-statement-fingerprints/SKILL.md) for query pattern trends. Note that background jobs are excluded from statement statistics.
-
 ## Prerequisites
 
-**Required SQL access:**
-- Connection to any CockroachDB node
-- For cluster-wide job visibility: `VIEWJOB` system privilege (read-only monitoring)
-- For job control operations: `CONTROLJOB` role option (pause/cancel/resume jobs)
-- Without these: Limited visibility into jobs you created
+- SQL connection with `VIEWJOB` system privilege (read-only) or `CONTROLJOB` role option (control)
+- Background jobs are excluded from `SHOW CLUSTER STATEMENTS` and from statement statistics surfaced in the DB Console SQL Activity page
 
-**Check your privileges:**
-```sql
-SHOW GRANTS ON ROLE <username>;
-```
+**Related skills:** [triaging-live-sql-activity](../triaging-live-sql-activity/SKILL.md) for live queries, [profiling-statement-fingerprints](../profiling-statement-fingerprints/SKILL.md) for historical query analysis.
 
-Look for:
-- `VIEWJOB` in the `privilege_type` column (system privilege)
-- `CONTROLJOB` in role options (check with `SHOW USERS`)
+## Key Interfaces
 
-See [permissions reference](references/permissions.md) for detailed RBAC setup.
+- `SHOW JOBS`: User-initiated + automatic jobs (last 12h default; retention configurable via the `jobs.retention_time` cluster setting, default 14 days)
+- `SHOW AUTOMATIC JOBS`: Automatic jobs only (AUTO CREATE STATS, SCHEMA CHANGE GC, etc.)
 
-## Core Concepts
-
-### Jobs vs Statements
-
-**Key distinction:**
-- **Statements:** User-initiated SQL queries tracked by SHOW CLUSTER STATEMENTS and statement statistics
-- **Background jobs:** Long-running operations tracked separately by SHOW JOBS
-
-**Background jobs are excluded from:**
-- `SHOW CLUSTER STATEMENTS` (live query monitoring)
-- `crdb_internal.statement_statistics` (historical query analysis)
-- Statement fingerprint metrics and DB Console Statements page
-
-**Common job types:**
-
-| Category | Job Types | Examples |
-|----------|-----------|----------|
-| **User-initiated** | SCHEMA CHANGE, BACKUP, RESTORE, IMPORT, CHANGEFEED | ALTER TABLE, CREATE INDEX, BACKUP DATABASE, RESTORE |
-| **Automatic** | SCHEMA CHANGE GC, AUTO CREATE STATS, AUTO SQL STATS COMPACTION | Post-DROP cleanup, table statistics refresh, stats table maintenance |
-
-See [job types reference](references/job-types.md) for complete catalog.
-
-### SHOW JOBS vs SHOW AUTOMATIC JOBS
-
-| Interface | Scope | Time Window | Use Case |
-|-----------|-------|-------------|----------|
-| `SHOW JOBS` | User-initiated + automatic | Last 12 hours (default) | Monitor backups, schema changes, user operations |
-| `SHOW AUTOMATIC JOBS` | Automatic only | Configurable (recommend 24h) | Monitor AUTO CREATE STATS, AUTO SQL STATS COMPACTION, SCHEMA CHANGE GC |
-
-**Time retention:**
-- Default retention: 14 days in `crdb_internal.jobs` table
-- `SHOW JOBS` display window: 12 hours (configurable with `SHOW JOBS SELECT * FROM [SHOW JOBS] WHERE ...`)
-- `SHOW AUTOMATIC JOBS` display window: Configurable with `WHERE created > now() - INTERVAL '...'`
-
-### Job Status Values
-
-| Status | Meaning | Action Required |
-|--------|---------|-----------------|
-| `running` | Job is actively executing | Monitor progress via `fraction_completed` |
-| `succeeded` | Job completed successfully | None |
-| `failed` | Job encountered an error | Investigate `error` column, may need to retry |
-| `paused` | Job manually paused | Resume with `RESUME JOB` if appropriate |
-| `canceled` | Job was canceled (terminal state) | Retry operation if needed |
-| `pending` | Job queued but not started | Monitor; may indicate resource constraints |
-| `reverting` | Job failed and is rolling back changes | Wait for completion; check error after |
-
-**Running status sub-states:**
-- `performing backup`: Backup job actively transferring data
-- `restoring`: Restore job actively applying data
-- `waiting for MVCC GC`: SCHEMA CHANGE GC waiting for garbage collection eligibility
-
-See [job states reference](references/job-states.md) for detailed state transitions and "waiting for MVCC GC" explanation.
+See [job types reference](references/job-types.md) and [job states reference](references/job-states.md) for complete catalogs.
 
 ## Core Diagnostic Queries
 
@@ -216,9 +145,9 @@ LIMIT 50;
 ```
 
 **Interpretation:**
-- **Normal:** SCHEMA CHANGE GC jobs wait for data to become garbage-collectable based on `gc.ttlseconds` setting (default 25 hours)
+- **Normal:** SCHEMA CHANGE GC jobs wait for data to become garbage-collectable based on the zone-level `gc.ttlseconds` (default 4 hours)
 - **Expected duration:** Up to `gc.ttlseconds` + some overhead
-- **When to worry:** Waiting > 2x `gc.ttlseconds` (check setting with `SHOW CLUSTER SETTING gc.ttlseconds`)
+- **When to worry:** Waiting > 2x `gc.ttlseconds` (check the effective value with `SHOW ZONE CONFIGURATION FOR ...` against the affected table, database, or RANGE — zone configs cascade and may be overridden at any level)
 
 **Why this happens:**
 After DROP TABLE/INDEX operations, CockroachDB must wait for all reads at older timestamps to complete before physically removing data. This prevents "time-travel" queries from failing.
@@ -341,7 +270,7 @@ LIMIT 50;
    - If failed: Check `error` column for specific failure reason
 
 4. **Next steps:**
-   - MVCC GC wait: Verify `SHOW CLUSTER SETTING gc.ttlseconds` and wait
+   - MVCC GC wait: Verify the effective `gc.ttlseconds` with `SHOW ZONE CONFIGURATION FOR TABLE/DATABASE/RANGE ...` against the affected object and wait
    - Resource constraints: Check cluster CPU/memory usage
    - Failed job: Address error (permissions, constraints) and retry operation
 
@@ -483,7 +412,7 @@ See [permissions reference](references/permissions.md) for CONTROLJOB role optio
 | Issue | Cause | Fix |
 |-------|-------|-----|
 | `SHOW JOBS` returns empty | No jobs in last 12h, or insufficient privileges | Grant `VIEWJOB` privilege; verify cluster has recent job activity |
-| "waiting for MVCC GC" for many hours | Normal behavior for SCHEMA CHANGE GC after DROP operations | Wait up to `gc.ttlseconds` (default 25h); check `SHOW CLUSTER SETTING gc.ttlseconds` |
+| "waiting for MVCC GC" for many hours | Normal behavior for SCHEMA CHANGE GC after DROP operations | Wait up to `gc.ttlseconds` (default 4h); check the effective value with `SHOW ZONE CONFIGURATION FOR ...` against the affected table/database/range |
 | Can't pause/resume job: "permission denied" | Missing `CONTROLJOB` role option | Use `ALTER ROLE <username> WITH CONTROLJOB` (not GRANT SYSTEM) |
 | Job stuck at same `fraction_completed` | Job may be processing large batch, or actually stuck | Wait 15-30 min and re-check; if no change, investigate with live query triage |
 | No AUTO CREATE STATS jobs | Automatic collection disabled | Check `sql.stats.automatic_collection.enabled = true` |
@@ -493,14 +422,10 @@ See [permissions reference](references/permissions.md) for CONTROLJOB role optio
 
 ## Key Considerations
 
-- **Jobs vs queries:** Background jobs execute statements that don't appear in SHOW STATEMENTS or statement statistics
-- **Time windows:** SHOW JOBS default 12h retention; use `crdb_internal.jobs` for up to 14 days
-- **MVCC GC waiting:** Normal and expected for post-DROP cleanup; duration tied to `gc.ttlseconds`
-- **LIMIT clauses:** Always include for production safety (prevents overwhelming output)
-- **Privilege model:** VIEWJOB (system privilege) for read-only; CONTROLJOB (role option) for control
+- **MVCC GC waiting:** Normal for post-DROP cleanup; duration tied to the zone-level `gc.ttlseconds` (default 4h)
 - **Automatic job health:** Regular AUTO CREATE STATS is critical for query optimizer performance
-- **Progress estimates:** `fraction_completed` may be NULL or sparse for some job types
-- **Job control risks:** PAUSE is safer than CANCEL; some cancellations require manual cleanup
+- **Job control:** PAUSE is safer than CANCEL; some cancellations require manual cleanup
+- **Progress:** `fraction_completed` may be NULL for some job types
 
 ## References
 

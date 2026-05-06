@@ -13,92 +13,22 @@ Audits optimizer table statistics for staleness, missing column coverage, and ro
 
 **Complement to profiling-statement-fingerprints:** This skill diagnoses optimizer statistics issues; for identifying historically slow queries, see [profiling-statement-fingerprints](../profiling-statement-fingerprints/SKILL.md).
 
-## When to Use This Skill
-
-- Query performance degrades after bulk INSERT, UPDATE, or DELETE operations
-- EXPLAIN plans show unexpected full table scans or suboptimal join orders
-- Plan instability: same query produces different execution plans over time
-- After schema changes: ADD COLUMN, DROP COLUMN, or CREATE INDEX operations
-- Tables experience >20-30% row count changes without statistics refresh
-- SQL-only diagnostics needed without DB Console access
-- Validating automatic statistics collection is working correctly
-
-**For historical query analysis:** Use [profiling-statement-fingerprints](../profiling-statement-fingerprints/SKILL.md) to identify slow statement patterns.
-**For live query triage:** Use [triaging-live-sql-activity](../triaging-live-sql-activity/SKILL.md) for immediate incident response.
-
 ## Prerequisites
 
-- SQL connection to CockroachDB cluster
-- **Privilege requirement:** Any privilege on target tables (SELECT, INSERT, UPDATE, DELETE, or admin role)
-  - Much less restrictive than VIEWACTIVITY: any table access grants statistics visibility for that table
+- SQL connection with any privilege on target tables
 - Automatic statistics collection enabled (default): `sql.stats.automatic_collection.enabled = true`
 
-**Check automatic collection status:**
-```sql
-SHOW CLUSTER SETTING sql.stats.automatic_collection.enabled;  -- Should return: true
-```
-
-**Verify table access:**
-```sql
-SHOW GRANTS ON TABLE database_name.table_name;
-```
+**Related skills:** [profiling-statement-fingerprints](../profiling-statement-fingerprints/SKILL.md) for historical query analysis, [triaging-live-sql-activity](../triaging-live-sql-activity/SKILL.md) for live triage.
 
 ## Core Concepts
 
-### What Are Table Statistics?
+**CockroachDB-specific defaults:**
+- Automatic collection triggers at ~20% row count change (`sql.stats.automatic_collection.fraction_stale_rows`)
+- Auto-collection covers index column groups (when `sql.stats.multi_column_collection.enabled = true`, the default); ad-hoc multi-column stats on non-indexed columns require manual `CREATE STATISTICS`
+- Large tables (>10M rows) may have delayed auto-collection
+- Staleness thresholds: refresh if >7 days (OLTP) or >30 days (OLAP), or >20-30% row count drift
 
-**Table statistics** provide the optimizer with data distribution information to estimate query costs:
-
-| Statistic Type | Description | Impact on Optimizer |
-|----------------|-------------|---------------------|
-| **row_count** | Total rows in table | Cardinality estimates for full scans |
-| **distinct_count** | Unique values per column | Selectivity estimates for WHERE/JOIN predicates |
-| **null_count** | NULL values per column | IS NULL / IS NOT NULL predicate costs |
-| **histogram** | Value distribution buckets | Range scan selectivity (e.g., `WHERE age BETWEEN 20 AND 30`) |
-
-**Multi-column statistics** capture correlation between columns (e.g., city + state + zip) for more accurate multi-predicate estimates.
-
-### Statistics Lifecycle
-
-**Automatic collection (default):**
-- Triggered when row count changes by ~20% since last statistics collection
-- Runs as background job (non-blocking, but consumes resources)
-- May be delayed for very large tables (>10M rows)
-
-**Manual collection:**
-- Explicit `CREATE STATISTICS` command for immediate refresh
-- Required for multi-column statistics (automatic collection only creates single-column stats)
-- Recommended after bulk data loads or significant schema changes
-
-### Staleness Indicators
-
-| Indicator | Definition | Recommended Action |
-|-----------|------------|-------------------|
-| **Age** | Time since last statistics collection | Refresh if >7 days (OLTP) or >30 days (OLAP) |
-| **Row count drift** | Percent difference between current and cached row_count | Refresh if >20-30% drift detected |
-| **Missing columns** | Columns without statistics | CREATE STATISTICS for frequently queried columns |
-| **Missing histograms** | Columns without distribution data | Automatic collection handles; may need manual refresh |
-
-See [references/statistics-thresholds.md](references/statistics-thresholds.md) for workload-specific threshold guidance.
-
-### When Statistics Are Auto-Collected
-
-**Default trigger:** ~20% row count change (controlled by `sql.stats.automatic_collection.fraction_stale_rows`)
-
-**Collection schedule:**
-- Small tables (<10K rows): Immediate
-- Medium tables (10K-10M rows): Within minutes to hours
-- Large tables (>10M rows): May be delayed hours to avoid resource contention
-
-**Check pending jobs:**
-```sql
-SELECT job_id, description, status, fraction_completed
-FROM [SHOW JOBS]
-WHERE job_type = 'AUTO CREATE STATS'
-  AND status IN ('pending', 'running')
-ORDER BY created DESC
-LIMIT 20;
-```
+See [references/statistics-thresholds.md](references/statistics-thresholds.md) for workload-specific guidance.
 
 ## Core Diagnostic Queries
 
@@ -326,9 +256,9 @@ ORDER BY created DESC;
 - `column_count`: Number of columns in composite statistic
 
 **Interpretation:**
-- **Present**: Manual multi-column statistics exist (automatic collection only creates single-column)
-- **Absent**: May need manual creation for correlated columns (e.g., city + state + zip)
-- Common use case: Composite index columns that are queried together
+- **Present**: Multi-column statistics exist — either auto-collected for an index column group or manually created
+- **Absent**: No multi-column stats yet; may need manual creation for correlated non-indexed columns (e.g., city + state + zip)
+- Common use case: Manual stats on correlated columns that aren't covered by an index
 
 See [references/create-statistics-examples.md](references/create-statistics-examples.md) for multi-column creation patterns.
 
@@ -577,110 +507,13 @@ FROM ...;
 
 ## Key Considerations
 
-### Automatic vs Manual Collection
+- **Auto vs manual:** Keep automatic collection enabled for baseline; use manual `CREATE STATISTICS` for ad-hoc post-bulk-load refresh and critical tables
+- **Multi-column statistics:** Auto-collection covers index column groups; manual `CREATE STATISTICS` is needed for correlated non-indexed columns queried together (e.g., `CREATE STATISTICS city_state_stats ON city, state FROM addresses;`)
+- **Large tables (>10M rows):** Schedule `CREATE STATISTICS` during maintenance windows; monitor with `SHOW JOBS WHERE job_type = 'CREATE STATS'`
+- **Staleness tuning:** OLTP: 3-7 days, OLAP: 14-30 days, hybrid: critical tables 3-7 days, archive 30+ days
+- **Privilege:** Any table privilege (SELECT, INSERT, etc.) grants statistics visibility
 
-**Automatic (default):**
-- **Pros:** Zero maintenance, adapts to data changes, covers all single columns
-- **Cons:** May lag for very large tables, no multi-column statistics
-- **Recommendation:** Keep enabled for baseline coverage
-
-**Manual:**
-- **Pros:** Immediate refresh, supports multi-column statistics, controlled timing
-- **Cons:** Requires monitoring and operational overhead
-- **Recommendation:** Use for critical tables, correlated columns, post-bulk-load scenarios
-
-### Statistics Retention
-
-**Default retention:** Controlled by `sql.stats.persisted_rows.max` (default ~10 million rows across cluster)
-- Older statistics are pruned automatically
-- Typically 7-30 days of history retained depending on statistics volume
-
-**Historical analysis:**
-```sql
--- View statistics history for a table
-SELECT column_names, row_count, created
-FROM [SHOW STATISTICS FOR TABLE table_name]
-WHERE column_names = '{}'
-ORDER BY created DESC
-LIMIT 10;  -- Last 10 collections
-```
-
-### Histogram Limitations
-
-**What histograms optimize:**
-- Range queries: `WHERE age BETWEEN 20 AND 30`
-- Inequality predicates: `WHERE price > 100`
-- ORDER BY selectivity: `ORDER BY created_at LIMIT 10`
-
-**What histograms don't optimize:**
-- Exact equality: `WHERE id = 123` (uses distinct_count instead)
-- Multi-column predicates: Requires multi-column statistics
-- Very sparse columns: Histograms may be ineffective for highly skewed distributions
-
-### Multi-Column Statistics
-
-**When to create:**
-- Columns frequently queried together in WHERE clauses
-- Composite index columns with correlated values
-- Geographic columns (city + state + zip)
-- Time-based partitioning columns (year + month)
-
-**Creation:**
-```sql
--- Example: Correlated columns
-CREATE STATISTICS city_state_stats ON city, state FROM addresses;
-```
-
-**Limitation:** Only manual creation (automatic collection does NOT create multi-column statistics)
-
-See [references/create-statistics-examples.md](references/create-statistics-examples.md) for comprehensive patterns.
-
-### Performance Impact Mitigation
-
-**Large table strategies:**
-- Schedule during maintenance windows (nights/weekends)
-- Use database-specific batching (one database at a time)
-- Monitor cluster metrics: CPU, disk I/O, network saturation
-- Consider `AS OF SYSTEM TIME` for historical analysis without impacting live traffic
-
-**Resource monitoring during collection:**
-```sql
--- Check running statistics jobs
-SELECT job_id, description, status, fraction_completed, running_status
-FROM [SHOW JOBS]
-WHERE job_type IN ('CREATE STATS', 'AUTO CREATE STATS')
-  AND status = 'running';
-```
-
-### Staleness Threshold Tuning
-
-**OLTP workloads:**
-- **Recommended refresh:** 3-7 days
-- **Rationale:** Frequent updates, query patterns change rapidly
-
-**OLAP/Analytics workloads:**
-- **Recommended refresh:** 14-30 days
-- **Rationale:** Batch-oriented, stable query patterns
-
-**Hybrid workloads:**
-- Critical tables: 3-7 days
-- Archive/historical tables: 30+ days
-
-See [references/statistics-thresholds.md](references/statistics-thresholds.md) for detailed guidance.
-
-### Privilege Requirements
-
-**Required:** Any privilege on table (SELECT, INSERT, UPDATE, DELETE, or admin role)
-
-**Comparison to other diagnostics:**
-- **Less restrictive than:** VIEWACTIVITY (required for statement_statistics)
-- **More restrictive than:** Public cluster settings
-
-**Grant example:**
-```sql
--- Grant SELECT (least privileged) for statistics visibility
-GRANT SELECT ON TABLE database_name.table_name TO diagnostics_user;
-```
+See [references/create-statistics-examples.md](references/create-statistics-examples.md) and [references/statistics-thresholds.md](references/statistics-thresholds.md) for detailed guidance.
 
 ## References
 

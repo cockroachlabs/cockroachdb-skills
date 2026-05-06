@@ -11,24 +11,6 @@ metadata:
 
 Converts natural language questions into CockroachDB-compliant SQL queries, following CockroachDB best practices. Use it for schema design, writing queries and optimizing query.
 
-## When to Use This Skill
-
-Activate this skill when:
-- User asks for SQL query generation for CockroachDB
-- User provides natural language descriptions of database operations
-- User asks questions like:
-  - "How do I query recent orders in CockroachDB?"
-  - "Generate a CockroachDB table for user management"
-  - "Convert this to CockroachDB SQL: [description]"
-  - "What's the CockroachDB way to [operation]?"
-- When you encounter:
-  - CREATE TABLE statements
-  - ALTER TABLE modifications
-  - DML Operations (INSERT, UPDATE, DELETE)
-  - SELECT queries
-  - Performance optimization requests
-  - Backup/restore operations
-
 ## How to Apply this Skill
 
 1. **Connection Detection** — already performed on skill invocation; reuse active connection.
@@ -87,6 +69,46 @@ When skill is invoked, ALWAYS:
 - Include performance considerations
 - When optimizing, at each step 1- Explain the step's purpose. 2- Execute the step and report the outcome. 3- Summarize all findings and actions taken.
 - Provide references used including the rules
+
+## Examples
+
+### Schema Design — UUID Primary Key (Avoid Hotspots)
+
+```sql
+CREATE TABLE orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  customer_id UUID NOT NULL,
+  status STRING NOT NULL DEFAULT 'pending',
+  total DECIMAL(10,2) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  INDEX idx_orders_customer (customer_id),
+  INDEX idx_orders_status_created (status, created_at DESC)
+);
+```
+
+### Batch Upsert with UNNEST
+
+```sql
+UPSERT INTO inventory (sku, warehouse, quantity, updated_at)
+SELECT * FROM UNNEST(
+  ARRAY['SKU-001', 'SKU-002', 'SKU-003']::STRING[],
+  ARRAY['us-east', 'us-east', 'us-west']::STRING[],
+  ARRAY[100, 250, 75]::INT[],
+  ARRAY[now(), now(), now()]::TIMESTAMPTZ[]
+);
+```
+
+### Keyset Pagination (Avoid OFFSET)
+
+Use the previous page's last `(created_at, id)` as the cursor. In application code these are bound parameters; the literals here are placeholders.
+
+```sql
+SELECT id, customer_id, created_at
+FROM orders
+WHERE (created_at, id) > ('2025-01-01'::TIMESTAMPTZ, '00000000-0000-0000-0000-000000000000'::UUID)
+ORDER BY created_at, id
+LIMIT 50;
+```
 
 ## Supporting Documentation
 

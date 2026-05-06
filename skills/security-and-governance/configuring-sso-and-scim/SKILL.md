@@ -16,29 +16,12 @@ Configures Single Sign-On (SSO) and SCIM 2.0 provisioning for CockroachDB across
 3. **SQL/Cluster SSO** — JWT-based or LDAP/AD authentication for SQL client connections
 4. **SCIM 2.0** — Automated user provisioning on the Cloud Console
 
-## When to Use This Skill
-
-- Enabling centralized identity management via an IdP (Okta, Azure AD, Google Workspace, etc.)
-- Meeting compliance requirements for SSO-only authentication
-- Automating user provisioning and deprovisioning to prevent orphaned accounts
-- Setting up SSO for SQL authentication to eliminate database-level passwords
-- Configuring LDAP/AD authentication for self-hosted clusters in on-prem or hybrid environments
-- Responding to a security audit finding about missing SSO or SCIM configuration
-
 ## Prerequisites
 
-- **Cloud Console role:** Organization Admin (for Console SSO and SCIM)
-- **SQL access:** Cluster admin role (for DB Console SSO and SQL/Cluster SSO)
-- **Identity Provider (IdP):** Configured and operational — Okta, Azure AD, Google Workspace, PingOne, or other SAML/OIDC-compatible provider
-- **ccloud CLI** authenticated (`ccloud auth login`) — for Cloud Console SSO/SCIM
-- **DB Console SSO:** Advanced or Enterprise plan required (not available on Standard or Basic)
-- **SCIM:** Enterprise plan required for SCIM 2.0
-- **LDAP/AD:** Self-hosted CockroachDB cluster required (LDAP is not available on CockroachDB Cloud)
-
-**Verify access:**
-```bash
-ccloud auth whoami
-```
+- **Console SSO/SCIM:** Organization Admin + `ccloud` CLI
+- **DB Console/SQL SSO:** Cluster admin role + Advanced or Enterprise plan (DB Console SSO not on Standard/Basic)
+- **LDAP/AD:** Self-hosted only (not available on CockroachDB Cloud)
+- **SCIM 2.0:** Enterprise plan required
 
 ## Configuration Decisions
 
@@ -64,53 +47,13 @@ Before proceeding, determine which layers the user needs. Ask which of the follo
 
 ## Steps
 
-### Step 0: Audit Current SSO Configuration
-
-Before configuring anything, audit the current state of all four SSO layers.
-
-#### Cloud Console SSO
-
-Check SSO status in the Cloud Console UI: **Organization Settings > Authentication**. The `ccloud` CLI does not expose SSO configuration commands.
-
-#### DB Console SSO (OIDC)
-
-```sql
-SHOW CLUSTER SETTING server.oidc_authentication.enabled;
-SHOW CLUSTER SETTING server.oidc_authentication.provider_url;
-SHOW CLUSTER SETTING server.oidc_authentication.client_id;
-```
-
-#### SQL/Cluster SSO (JWT)
-
-```sql
-SHOW CLUSTER SETTING server.jwt_authentication.enabled;
-SHOW CLUSTER SETTING server.jwt_authentication.issuers.configuration;
-SHOW CLUSTER SETTING server.jwt_authentication.jwks_auto_fetch.enabled;
-```
-
-#### LDAP Authentication
-
-```sql
--- Check HBA rules for any ldap method entries
-SHOW CLUSTER SETTING server.host_based_authentication.configuration;
-```
-
-Look for lines containing `ldap` in the HBA output.
-
-#### Auto-Provisioning
-
-```sql
-SHOW CLUSTER SETTING security.provisioning.jwt.enabled;
-SHOW CLUSTER SETTING security.provisioning.ldap.enabled;
-```
-
 ### Part 1: Cloud Console SSO
 
-Cloud Console SSO enables SAML or OIDC authentication for the CockroachDB Cloud web console, replacing password-based login.
+Cloud Console SSO enables SAML or OIDC authentication for the CockroachDB Cloud web console.
 
 #### 1.1 Check Current SSO Configuration
 
-Check SSO status in the Cloud Console UI (Organization Settings > Authentication). The `ccloud` CLI does not currently expose SSO configuration commands.
+Check SSO status in the Cloud Console UI (Organization Settings > Authentication).
 
 #### 1.2a Configure SAML SSO
 
