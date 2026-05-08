@@ -32,7 +32,6 @@ molt verify \
 |------|---------|----------|
 | Full (default) | `molt verify --source "..." --target "..."` | Post-migration integrity check |
 | Schema-only | `molt verify ... --rows=false` | Fast DDL check; no data I/O |
-| Compile-only | `molt verify ... --compile-only` | Validate flag syntax without connecting |
 
 ## Concurrency & Sharding
 
@@ -82,12 +81,6 @@ molt verify \
   --transformations-file transformations.json
 ```
 
-### 5. Validate flags without connecting
-```bash
-molt verify --source "..." --target "..." --compile-only
-# Returns: {"status":"ok","message":"arguments parsed successfully"}
-```
-
 ## Source-Specific Prerequisites
 
 **PostgreSQL**: No special requirements. Partition tables (child partitions) are not supported — remove them before verifying.
@@ -109,7 +102,7 @@ truth rows seen: 10000, success: 9950, missing: 5, mismatch: 45, extraneous: 0
 
 Schema issues (missing/extra tables or columns, type mismatches, PK differences) are logged as warnings and do not stop row verification.
 
-Prometheus metrics available at `--metrics-listen-addr` (default `localhost:8888`).
+Prometheus metrics available at `--metrics-listen-addr` (default `127.0.0.1:3030`).
 
 ## Error Recovery
 
