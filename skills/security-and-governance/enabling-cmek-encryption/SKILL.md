@@ -148,10 +148,9 @@ ccloud cluster info <cluster-name> -o json
 # Verify cmek_config shows enabled status and correct key URI
 ```
 
-```sql
--- Verify encryption via SQL
-SHOW CLUSTER SETTING enterprise.encryption.type;
-```
+CMEK status is not exposed as a SQL cluster setting; the Cloud Console
+**Cluster** → **Settings** → **Encryption** page is authoritative for
+managed clusters.
 
 ### 5. Test Key Accessibility
 

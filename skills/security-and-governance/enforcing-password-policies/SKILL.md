@@ -9,7 +9,7 @@ metadata:
 
 # Enforcing Password Policies
 
-Configures and enforces password policies on CockroachDB clusters by setting minimum password length, bcrypt hash cost, and login throttling. Ensures password strength meets organizational and compliance requirements.
+Configures and enforces password policies on CockroachDB clusters by setting minimum password length and bcrypt hash cost. Ensures password strength meets organizational and compliance requirements.
 
 ## When to Use This Skill
 
@@ -17,7 +17,6 @@ Configures and enforces password policies on CockroachDB clusters by setting min
 - Setting up password policies for a new production cluster
 - Responding to a security audit finding about weak password policies
 - Increasing bcrypt hash cost to improve resistance against brute-force attacks
-- Configuring login throttling to mitigate credential stuffing
 
 ## Prerequisites
 
@@ -39,10 +38,6 @@ SHOW CLUSTER SETTING server.user_login.min_password_length;
 
 -- Password hash cost (bcrypt rounds)
 SHOW CLUSTER SETTING server.user_login.password_hashes.default_cost.crdb_bcrypt;
-
--- Login attempt throttling
-SHOW CLUSTER SETTING server.user_login.password.min_delay;
-SHOW CLUSTER SETTING server.user_login.password.max_delay;
 ```
 
 See [SQL queries reference](references/sql-queries.md) for additional password-related queries.
@@ -83,28 +78,12 @@ SET CLUSTER SETTING server.user_login.password_hashes.default_cost.crdb_bcrypt =
 
 **Trade-off:** Higher cost means slower password verification, which affects login latency. Cost 12 is a good balance.
 
-### 4. Configure Login Throttling
-
-Login throttling introduces delays after failed authentication attempts to slow down brute-force attacks.
-
-```sql
--- Minimum delay after failed login attempt
-SET CLUSTER SETTING server.user_login.password.min_delay = '0.5s';
-
--- Maximum delay after repeated failures
-SET CLUSTER SETTING server.user_login.password.max_delay = '10s';
-```
-
-The delay increases exponentially between `min_delay` and `max_delay` with each consecutive failed attempt.
-
-### 5. Verify Enforcement
+### 4. Verify Enforcement
 
 ```sql
 -- Confirm settings
 SHOW CLUSTER SETTING server.user_login.min_password_length;
 SHOW CLUSTER SETTING server.user_login.password_hashes.default_cost.crdb_bcrypt;
-SHOW CLUSTER SETTING server.user_login.password.min_delay;
-SHOW CLUSTER SETTING server.user_login.password.max_delay;
 ```
 
 **Test enforcement:**
@@ -118,7 +97,7 @@ CREATE USER test_strong_password WITH PASSWORD 'a-secure-password-123';
 DROP USER test_strong_password;
 ```
 
-### 6. Address Existing Users with Weak Passwords
+### 5. Address Existing Users with Weak Passwords
 
 Password policy changes only apply to new passwords. Existing users retain their old passwords until they change them.
 
@@ -132,15 +111,15 @@ Password policy changes only apply to new passwords. Existing users retain their
 ALTER USER <username> WITH PASSWORD '<new-strong-password>';
 ```
 
-### 7. Manage Password Changes and Rotation
+### 6. Manage Password Changes and Rotation
 
 #### User Self-Service Password Changes
 
 SQL users can change their own passwords:
 
 ```sql
--- User changes their own password
-ALTER USER current_user() WITH PASSWORD '<new-password>';
+-- User changes their own password (CURRENT_USER, no parens)
+ALTER USER CURRENT_USER WITH PASSWORD '<new-password>';
 ```
 
 **Note:** Non-admin users can change their own passwords by default. If users report they cannot change their password, verify they are connected as the correct user and that there are no HBA rules blocking password-based authentication.
@@ -170,7 +149,7 @@ Changing one does not affect the other. Users must manage both if they use both 
 - Coordinate password rotation with application deployment cycles to avoid downtime
 - After changing a password, verify the application can connect with the new credentials before decommissioning the old password
 
-### 8. Troubleshoot Common Password Errors
+### 7. Troubleshoot Common Password Errors
 
 #### "password too short"
 
@@ -204,17 +183,11 @@ If users report authentication failures immediately after changing their passwor
    ```sql
    SHOW CLUSTER SETTING server.host_based_authentication.configuration;
    ```
-4. Check login throttling delays if there were failed attempts:
-   ```sql
-   SHOW CLUSTER SETTING server.user_login.password.min_delay;
-   SHOW CLUSTER SETTING server.user_login.password.max_delay;
-   ```
 
 ## Safety Considerations
 
 - **New passwords only:** Changing `min_password_length` does not invalidate existing passwords. Users with short passwords can still log in until they change their password.
 - **Hash cost latency:** Increasing `crdb_bcrypt` cost increases login time. Test with realistic connection pools before setting cost above 12.
-- **Throttling impact:** Login throttling delays affect all users after failed attempts, including legitimate users who mistype their password.
 - **Service accounts:** Ensure service accounts use strong passwords or certificate-based authentication (certificates bypass password policy).
 
 ## Rollback
@@ -225,10 +198,6 @@ SET CLUSTER SETTING server.user_login.min_password_length = 1;
 
 -- Reset hash cost to default
 RESET CLUSTER SETTING server.user_login.password_hashes.default_cost.crdb_bcrypt;
-
--- Reset login throttling to defaults
-RESET CLUSTER SETTING server.user_login.password.min_delay;
-RESET CLUSTER SETTING server.user_login.password.max_delay;
 ```
 
 ## References
