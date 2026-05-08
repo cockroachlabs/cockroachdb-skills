@@ -132,13 +132,16 @@ indexes, expand storage) before issuing the DDL.
   `InsufficientSpaceError`, free disk on the affected store and resume the
   paused schema change job. Check with:
   ```sql
+  WITH j AS (SHOW JOBS)
   SELECT job_id, status, error
-  FROM crdb_internal.jobs
+  FROM j
   WHERE job_type = 'SCHEMA CHANGE' AND status = 'paused';
   ```
 - **Drop unused indexes first.** Often the cheapest way to free headroom
   before a large backfill is to drop indexes that
-  `crdb_internal.index_usage_statistics` shows are unused.
+  `crdb_internal.index_usage_statistics` shows are unused (this is one of the
+  12 production-safe `crdb_internal` views, per the
+  [docs](https://www.cockroachlabs.com/docs/stable/crdb-internal)).
 - **Statistics lag.** `range_size_mb` is approximate and can lag actual disk
   usage; treat estimates as conservative ballparks, not exact figures.
 
