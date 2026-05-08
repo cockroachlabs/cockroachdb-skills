@@ -57,7 +57,7 @@ See [triaging-live-sql-activity permissions reference](../triaging-live-sql-acti
 ### Time-Series Bucketing
 
 **aggregated_ts:** Hourly UTC buckets (e.g., `2026-02-21 14:00:00` = 14:00-14:59 executions)
-**Data retention:** Default ~7 days (check `sql.stats.persisted_rows.max`)
+**Data retention:** Capped by row count, not time. `sql.stats.persisted_rows.max` (default 1,000,000) bounds the persisted statement+transaction rows; older buckets are compacted once the cap is reached. Effective wall-clock window depends on workload diversity.
 **Best practice:** Always filter by time window: `WHERE aggregated_ts > now() - INTERVAL '24 hours'`
 
 ### Aggregated vs Sampled Metrics
@@ -65,7 +65,7 @@ See [triaging-live-sql-activity permissions reference](../triaging-live-sql-acti
 | Metric Category | JSON Path | Scope | Use Case |
 |-----------------|-----------|-------|----------|
 | **Aggregated** | `statistics.statistics.*` | All executions | Retries, commit latency, execution counts |
-| **Sampled** | `statistics.execution_statistics.*` | Probabilistic sample (~10%) | Contention, network, memory/disk |
+| **Sampled** | `statistics.execution_statistics.*` | Probabilistic sample governed by `sql.txn_stats.sample_rate` (default 0.01) | Contention, network, memory/disk |
 
 **Critical:** Sampled metrics have `cnt` field showing sample size. Always check:
 ```sql
@@ -371,7 +371,7 @@ All queries are `SELECT` statements against `crdb_internal.transaction_statistic
 - **Performance:** Always include time filters and LIMIT clauses
 - **Complement to statement profiling:** Use together for complete coverage (transaction + statement)
 - **Complement to live triage:** Historical patterns vs real-time (use both)
-- **Data retention:** Default ~7 days; verify with `sql.stats.persisted_rows.max`
+- **Data retention:** Bounded by the row-count cap `sql.stats.persisted_rows.max` (default 1,000,000), not a TTL; effective time window varies with workload diversity
 - **Retry semantics:** `maxRetries` is maximum across all executions in bucket, not average
 - **Fingerprint encoding:** Use `encode(fingerprint_id, 'hex')` for human-readable IDs
 
