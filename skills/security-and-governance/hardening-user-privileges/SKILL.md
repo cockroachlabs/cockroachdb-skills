@@ -105,16 +105,29 @@ ORDER BY privilege_type, grantee;
 
 ### 3. Create Purpose-Specific Roles
 
-Replace broad admin grants with targeted roles:
+Replace broad admin grants with targeted roles. Database-level grants in
+CockroachDB only support `CONNECT`, `CREATE`, `DROP`, `ZONECONFIG`, `BACKUP`,
+`RESTORE`, and `ALL` — data-access privileges (`SELECT`, `INSERT`, `UPDATE`,
+`DELETE`) live at the schema or table level. Pair `GRANT ... ON ALL TABLES IN
+SCHEMA` (covers existing tables) with `ALTER DEFAULT PRIVILEGES` (covers
+future tables created by the listed grantors) so new tables inherit the
+intended access.
 
 ```sql
 -- Read-only role for analysts
 CREATE ROLE analyst_reader;
-GRANT SELECT ON DATABASE <app_db> TO analyst_reader;
+GRANT CONNECT ON DATABASE <app_db> TO analyst_reader;
+GRANT USAGE ON SCHEMA <app_db>.public TO analyst_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA <app_db>.public TO analyst_reader;
+ALTER DEFAULT PRIVILEGES IN SCHEMA <app_db>.public GRANT SELECT ON TABLES TO analyst_reader;
 
 -- Application service role (read + write, no DDL)
 CREATE ROLE app_service;
-GRANT SELECT, INSERT, UPDATE, DELETE ON DATABASE <app_db> TO app_service;
+GRANT CONNECT ON DATABASE <app_db> TO app_service;
+GRANT USAGE ON SCHEMA <app_db>.public TO app_service;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA <app_db>.public TO app_service;
+ALTER DEFAULT PRIVILEGES IN SCHEMA <app_db>.public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_service;
 
 -- Schema management role (DDL only)
 CREATE ROLE schema_manager;
@@ -152,8 +165,9 @@ REVOKE admin FROM monitoring_user;
 
 **Revoke PUBLIC role data grants:**
 ```sql
--- Revoke SELECT from PUBLIC on application databases
-REVOKE SELECT ON DATABASE <app_db> FROM public;
+-- Revoke SELECT from PUBLIC on existing tables, plus the default-privilege grant
+REVOKE SELECT ON ALL TABLES IN SCHEMA <app_db>.public FROM public;
+ALTER DEFAULT PRIVILEGES IN SCHEMA <app_db>.public REVOKE SELECT ON TABLES FROM public;
 
 -- Revoke all data privileges from PUBLIC on specific tables
 REVOKE ALL ON TABLE <sensitive_table> FROM public;
@@ -212,10 +226,10 @@ If an application breaks after revoking a grant:
 GRANT admin TO <username>;
 
 -- Re-grant specific privileges
-GRANT SELECT, INSERT, UPDATE ON DATABASE <app_db> TO <username>;
+GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA <app_db>.public TO <username>;
 
 -- Re-grant PUBLIC privileges
-GRANT SELECT ON DATABASE <app_db> TO public;
+GRANT SELECT ON ALL TABLES IN SCHEMA <app_db>.public TO public;
 ```
 
 **Best practice:** Keep a record of all grants before revoking so you can restore them if needed:

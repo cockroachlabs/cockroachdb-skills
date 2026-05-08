@@ -285,13 +285,17 @@ ccloud cluster info <cluster-name> -o json
 - **Advanced plan with Advanced Security Add-on, CMEK enabled:** PASS
 
 **Enterprise Encryption (self-hosted — skip CMEK, check this instead):**
-```bash
-# Enterprise Encryption is configured via --enterprise-encryption flag at node startup
-cockroach node status --certs-dir=<certs-dir> --host=<host> --format=records
-```
-```sql
-SHOW CLUSTER SETTING enterprise.encryption.type;
-```
+
+Enterprise Encryption-at-Rest is configured at node start via the
+`--enterprise-encryption` flag and is not exposed as a SQL cluster setting.
+Confirm it by:
+- Inspecting the node's startup arguments (process command line / systemd unit
+  / Kubernetes pod spec) for `--enterprise-encryption=...`
+- Checking the per-node Prometheus endpoint:
+  `curl -ks https://<node>:8080/_status/vars | grep '^rocksdb_encryption_'`
+- The DB Console **Advanced Debug** → **Stores** view reports the active
+  encryption type per store
+
 - **FAIL** if not enabled and cluster stores sensitive data
 - **WARN** if encryption status cannot be determined
 - **PASS** if enabled with AES-256
