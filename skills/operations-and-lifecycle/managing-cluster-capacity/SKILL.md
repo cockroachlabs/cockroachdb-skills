@@ -87,29 +87,27 @@ Manages cluster capacity across all CockroachDB deployment tiers. What "capacity
 
 #### Pre-Decommission Validation
 
+```bash
+# All nodes live, version-consistent, with replication and per-node range counts
+cockroach node status --decommission --certs-dir=<certs-dir> --host=<any-live-node>
+```
+
+Inspect the output for:
+- `is_live = true` for every node
+- `ranges_underreplicated` is `0` everywhere (all ranges fully replicated)
+
 ```sql
--- All nodes live
-SELECT n.node_id, n.is_live, n.build_tag
-FROM crdb_internal.gossip_nodes n
-JOIN crdb_internal.gossip_liveness l USING (node_id) ORDER BY n.node_id;
-
--- Ranges fully replicated
-SELECT CASE WHEN array_length(replicas, 1) >= 3 THEN 'fully_replicated'
-            ELSE 'under_replicated' END AS status, COUNT(*)
-FROM crdb_internal.ranges_no_leases GROUP BY 1;
-
--- Remaining capacity check
-SELECT node_id, store_id,
-  ROUND(capacity / 1073741824.0, 2) AS total_gb,
-  ROUND(available / 1073741824.0, 2) AS available_gb,
-  ROUND((1 - available::FLOAT / capacity::FLOAT) * 100, 2) AS utilization_pct
-FROM crdb_internal.kv_store_status ORDER BY node_id;
-
--- Replication factor
+-- Replication factor (and other zone-level settings)
 SHOW ZONE CONFIGURATION FOR RANGE default;
 ```
 
-Remaining nodes must stay < 60% utilization after absorbing data. Node count after decommission must be >= replication factor.
+For per-store capacity (so you can verify remaining nodes won't exceed 60% utilization after absorbing the decommissioned node's data), use the DB Console **Overview** → **Storage** page or scrape the Prometheus metrics endpoint:
+
+```bash
+curl -ks https://<node>:8080/_status/vars | grep '^capacity'
+```
+
+Node count after decommission must be ≥ the zone's `num_replicas`.
 
 #### If Node Is Alive: Drain Then Decommission
 
@@ -130,19 +128,12 @@ When a node has been dead longer than `server.time_until_store_dead` (default 5m
 
 **Step 1: Confirm the node is dead and data is safe**
 
-```sql
--- Confirm node is dead
-SELECT node_id, is_live FROM crdb_internal.gossip_nodes WHERE node_id = <dead_node_id>;
-
--- Verify all ranges are fully replicated (no under-replicated after re-replication)
-SELECT CASE WHEN array_length(replicas, 1) >= 3 THEN 'fully_replicated'
-            ELSE 'under_replicated' END AS status, COUNT(*)
-FROM crdb_internal.ranges_no_leases GROUP BY 1;
-
--- Check remaining capacity can handle the load
-SELECT node_id, ROUND((1 - available::FLOAT / capacity::FLOAT) * 100, 2) AS utilization_pct
-FROM crdb_internal.kv_store_status ORDER BY node_id;
+```bash
+# Confirm the dead node and verify replication has caught up
+cockroach node status --decommission --certs-dir=<certs-dir> --host=<any-live-node>
 ```
+
+In the output: the dead node should show `is_live = false`, and every surviving node should show `ranges_underreplicated = 0`. For per-store capacity on the surviving nodes, use the DB Console **Overview** → **Storage** page.
 
 If under-replicated ranges exist, wait for re-replication to complete before proceeding.
 
@@ -184,28 +175,19 @@ Only works while still in `decommissioning` state.
 1. Provision new hardware/VM with same specs as existing nodes
 2. Install same CockroachDB version (`cockroach version` to confirm)
 3. Start node with `--join` pointing to existing cluster nodes
-4. Verify join:
-   ```sql
-   SELECT node_id, address, is_live FROM crdb_internal.gossip_nodes n
-   JOIN crdb_internal.gossip_liveness l USING (node_id) ORDER BY node_id;
+4. Verify join and monitor rebalancing:
+   ```bash
+   cockroach node status --certs-dir=<certs-dir> --host=<any-live-node>
    ```
-5. Data rebalances automatically — monitor with:
-   ```sql
-   SELECT node_id, range_count, lease_count
-   FROM crdb_internal.kv_store_status ORDER BY node_id;
-   ```
+   The new node should appear in the output with `is_live = true`. The `ranges` column climbs as data rebalances toward the new node.
 
 ### Post-Scaling Verification
 
-```sql
-SELECT CASE WHEN array_length(replicas, 1) >= 3 THEN 'fully_replicated'
-            ELSE 'under_replicated' END AS status, COUNT(*)
-FROM crdb_internal.ranges_no_leases GROUP BY 1;
-
-SELECT node_id, range_count, lease_count,
-  ROUND((1 - available::FLOAT / capacity::FLOAT) * 100, 2) AS utilization_pct
-FROM crdb_internal.kv_store_status ORDER BY node_id;
+```bash
+cockroach node status --decommission --certs-dir=<certs-dir> --host=<any-live-node>
 ```
+
+Expect `ranges_underreplicated = 0` on every node and a balanced `ranges` count across nodes. For per-store capacity utilization, use the DB Console **Overview** → **Storage** page.
 
 ---
 

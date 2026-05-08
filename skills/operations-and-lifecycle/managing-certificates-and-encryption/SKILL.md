@@ -72,13 +72,17 @@ Manages TLS certificate and encryption key lifecycle across all deployment tiers
 
 ### Monitor Certificate Expiry
 
-```sql
-SELECT node_id,
-  to_timestamp((metrics->>'security.certificate.expiration.ca')::FLOAT)::TIMESTAMPTZ AS ca_expires,
-  to_timestamp((metrics->>'security.certificate.expiration.node')::FLOAT)::TIMESTAMPTZ AS node_cert_expires,
-  CASE WHEN to_timestamp((metrics->>'security.certificate.expiration.node')::FLOAT)::TIMESTAMPTZ
-            < now() + INTERVAL '90 days' THEN 'EXPIRING_SOON' ELSE 'OK' END AS status
-FROM crdb_internal.kv_node_status ORDER BY node_cert_expires;
+No production-safe SQL view exposes certificate expiration. Use one of:
+
+```bash
+# Inspect certs locally on each node
+cockroach cert list --certs-dir=<certs-dir>
+
+# Or read a specific cert file
+openssl x509 -in <certs-dir>/node.crt -noout -enddate
+
+# Or scrape the per-node Prometheus endpoint (UNIX seconds for ca, node, client_ca, ui_ca)
+curl -ks https://<node>:8080/_status/vars | grep '^security_certificate_expiration_'
 ```
 
 Alert thresholds: CA < 1 year = plan rotation. Node < 90 days = schedule rotation. Node < 30 days = rotate immediately.

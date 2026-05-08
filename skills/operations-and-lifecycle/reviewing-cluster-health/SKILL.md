@@ -75,77 +75,39 @@ Performs a comprehensive health check of a CockroachDB cluster. Before running d
 
 **Applies when:** Tier = Self-Hosted
 
-### Query 1: Node Liveness
+Self-Hosted node-level health is read primarily through `cockroach node status` (CLI) and the DB Console. Cluster settings and jobs are read through public SQL (`SHOW ALL CLUSTER SETTINGS`, `SHOW JOBS`). The `crdb_internal` virtual tables for cluster topology, storage, and certificates are not for production use — see the [docs](https://www.cockroachlabs.com/docs/stable/crdb-internal) for the production-safe table list.
 
-```sql
-SELECT
-  n.node_id, n.address, n.build_tag AS version, n.locality,
-  n.is_live, l.epoch,
-  CASE WHEN n.is_live THEN 'HEALTHY'
-       WHEN n.is_live IS NULL THEN 'UNKNOWN'
-       ELSE 'DOWN' END AS health_status
-FROM crdb_internal.gossip_nodes n
-LEFT JOIN crdb_internal.gossip_liveness l ON n.node_id = l.node_id
-ORDER BY n.node_id;
-```
+### Check 1: Node Liveness, Version, and Replication
 
-- Any `is_live = false` (from `gossip_nodes`) requires immediate investigation
-- High `epoch` suggests repeated restarts (node flapping)
-
-**If CLI is available:**
 ```bash
-cockroach node status --certs-dir=<certs-dir> --host=<node-address>
+cockroach node status --decommission --certs-dir=<certs-dir> --host=<any-live-node>
 ```
 
-### Query 2: Version Consistency
+Key columns:
+- `is_live` — `false` requires immediate investigation
+- `is_draining`, `is_decommissioning`, `membership` — flag in-progress lifecycle operations
+- `started_at` — compare across runs to spot flapping (node restarts)
+- `build` — version per node; should be a single value (or two during a rolling upgrade)
+- `ranges_underreplicated` — non-zero indicates ranges below the zone's `num_replicas`
 
-```sql
-SELECT build_tag AS version, COUNT(*) AS node_count,
-  array_agg(node_id ORDER BY node_id) AS node_ids
-FROM crdb_internal.gossip_nodes GROUP BY build_tag;
-```
+For finer-grained range breakdown, use the DB Console **Replication** page.
 
-- Single row = healthy. Two rows = acceptable during rolling upgrade. Three+ = investigate.
+### Check 2: Storage Capacity
 
-### Query 3: Storage Capacity
+No production-safe SQL view exposes per-store capacity. Use:
+- DB Console **Overview** → **Storage** for per-node usage
+- The Prometheus metric endpoint on each node: `curl -ks https://<node>:8080/_status/vars | grep '^capacity'` (`capacity`, `capacity_used`, `capacity_available`)
 
-```sql
-SELECT node_id, store_id,
-  ROUND(capacity / 1073741824.0, 2) AS total_gb,
-  ROUND(available / 1073741824.0, 2) AS available_gb,
-  ROUND((1 - (available::FLOAT / capacity::FLOAT)) * 100, 2) AS utilization_pct,
-  CASE WHEN (available::FLOAT / capacity::FLOAT) < 0.10 THEN 'CRITICAL'
-       WHEN (available::FLOAT / capacity::FLOAT) < 0.30 THEN 'WARNING'
-       ELSE 'OK' END AS capacity_status,
-  range_count, lease_count
-FROM crdb_internal.kv_store_status ORDER BY utilization_pct DESC;
-```
+### Check 3: Certificate Expiration
 
-### Query 4: Range Health
+No SQL view exposes node certificate expiration. Use one of:
+- `cockroach cert list --certs-dir=<certs-dir>` to inspect certs locally on each node
+- `openssl x509 -in <cert.crt> -noout -enddate` for a single cert file
+- The Prometheus metric endpoint: `curl -ks https://<node>:8080/_status/vars | grep '^security_certificate_expiration_'` (UNIX-timestamp seconds; `node`, `ca`, `client_ca`, `ui_ca`)
 
-```sql
-SELECT
-  CASE WHEN array_length(replicas, 1) >= 3 THEN 'fully_replicated'
-       WHEN array_length(replicas, 1) = 2 THEN 'under_replicated'
-       WHEN array_length(replicas, 1) = 1 THEN 'critically_under_replicated'
-       ELSE 'unknown' END AS replication_status,
-  COUNT(*) AS range_count
-FROM crdb_internal.ranges_no_leases GROUP BY 1 ORDER BY 1;
-```
+Treat anything within 90 days as `EXPIRING_SOON`.
 
-### Query 5: Certificate Expiration
-
-```sql
-SELECT node_id,
-  to_timestamp((metrics->>'security.certificate.expiration.ca')::FLOAT)::TIMESTAMPTZ AS ca_expires,
-  to_timestamp((metrics->>'security.certificate.expiration.node')::FLOAT)::TIMESTAMPTZ AS node_cert_expires,
-  CASE WHEN to_timestamp((metrics->>'security.certificate.expiration.node')::FLOAT)::TIMESTAMPTZ
-            < now() + INTERVAL '90 days' THEN 'EXPIRING_SOON'
-       ELSE 'OK' END AS cert_status
-FROM crdb_internal.kv_node_status ORDER BY node_cert_expires;
-```
-
-### Query 6: Critical Settings
+### Check 4: Critical Settings
 
 ```sql
 SELECT variable, value FROM [SHOW ALL CLUSTER SETTINGS]
@@ -156,22 +118,18 @@ WHERE variable IN (
 ) ORDER BY variable;
 ```
 
-### Query 7: Consolidated Summary
+### Check 5: Consolidated Summary
+
+The DB Console **Cluster Overview** page consolidates live/dead node count, version distribution, range counts, and storage. From the CLI:
+
+```bash
+cockroach node status --decommission --certs-dir=<certs-dir> --host=<any-live-node>
+```
+
+then aggregate the columns of interest in your shell. The cluster's logical version comes from SQL:
 
 ```sql
-SELECT 'live_nodes' AS metric, COUNT(*)::TEXT AS value
-FROM crdb_internal.gossip_nodes WHERE is_live = true
-UNION ALL SELECT 'dead_nodes', COUNT(*)::TEXT
-FROM crdb_internal.gossip_nodes WHERE is_live = false
-UNION ALL SELECT 'distinct_versions', COUNT(DISTINCT build_tag)::TEXT
-FROM crdb_internal.gossip_nodes
-UNION ALL SELECT 'total_ranges', COUNT(*)::TEXT
-FROM crdb_internal.ranges_no_leases
-UNION ALL SELECT 'min_store_available_pct',
-  ROUND(MIN(available::FLOAT / capacity::FLOAT) * 100, 2)::TEXT
-FROM crdb_internal.kv_store_status
-UNION ALL SELECT 'cluster_version', value
-FROM [SHOW CLUSTER SETTING version];
+SELECT value AS cluster_version FROM [SHOW CLUSTER SETTING version];
 ```
 
 **If reason = Pre-maintenance**, also check for running jobs:
@@ -180,18 +138,18 @@ WITH j AS (SHOW JOBS)
 SELECT job_type, COUNT(*) FROM j WHERE status = 'running' GROUP BY job_type;
 ```
 
-### Query 8: Production Readiness Assessment
+### Check 6: Production Readiness Assessment
 
 Use when verifying a cluster is ready for production workloads or during periodic operational reviews.
 
-```sql
--- Node count and replication (minimum 3 nodes for production)
-SELECT COUNT(*) AS total_nodes,
-  COUNT(*) FILTER (WHERE n.is_live) AS live_nodes,
-  COUNT(DISTINCT n.locality) AS distinct_localities
-FROM crdb_internal.gossip_nodes n
-JOIN crdb_internal.gossip_liveness l USING (node_id);
+```bash
+# Node count, liveness, and locality diversity
+cockroach node status --decommission --certs-dir=<certs-dir> --host=<any-live-node>
+```
 
+In the output, count rows with `is_live = true` (production wants ≥ 3) and check that `locality` shows multiple regions/zones.
+
+```sql
 -- Critical production settings check
 SELECT variable, value,
   CASE
@@ -231,22 +189,16 @@ Advanced clusters are dedicated single-tenant clusters managed by Cockroach Labs
 2. **Metrics** — CPU utilization, QPS, P99 latency, storage utilization
 3. **Alerts** — check for active alerts
 
-### SQL Checks
+### CLI + SQL Checks
+
+```bash
+# Node liveness, version, and replication status
+cockroach node status --decommission --certs-dir=<certs-dir> --host=<any-live-node>
+```
+
+Look at `is_live`, `build`, and `ranges_underreplicated` per node.
 
 ```sql
--- Node liveness (nodes are visible on Advanced)
-SELECT n.node_id, n.build_tag, n.is_live
-FROM crdb_internal.gossip_nodes n
-JOIN crdb_internal.gossip_liveness l USING (node_id) ORDER BY n.node_id;
-
--- Version consistency
-SELECT build_tag AS version, COUNT(*) FROM crdb_internal.gossip_nodes GROUP BY 1;
-
--- Range health
-SELECT CASE WHEN array_length(replicas, 1) >= 3 THEN 'fully_replicated'
-            ELSE 'under_replicated' END AS status, COUNT(*)
-FROM crdb_internal.ranges_no_leases GROUP BY 1;
-
 -- Recent failed jobs
 WITH j AS (SHOW JOBS)
 SELECT job_type, status, COUNT(*) FROM j
@@ -333,7 +285,7 @@ WHERE status = 'failed' AND created > now() - INTERVAL '24 hours';
 - **Storage growth** — plan based on usage trends
 - **Compute utilization** — increase provisioned vCPUs if utilization is consistently high
 
-**Note:** Node-level system tables (`crdb_internal.gossip_nodes`, `kv_store_status`, etc.) are not available on Standard. Use Cloud Console for all infrastructure health monitoring.
+**Note:** Node-level visibility is not available on Standard. Use Cloud Console for all infrastructure health monitoring.
 
 ---
 
@@ -376,19 +328,19 @@ WHERE status = 'failed' AND created > now() - INTERVAL '24 hours';
 
 ## Safety Considerations
 
-All queries in this skill are read-only. No data is modified.
+All checks in this skill are read-only. No data is modified.
 
-- **Self-Hosted:** `crdb_internal.ranges_no_leases` can be slow on large clusters — consider using `LIMIT`
-- **Advanced/BYOC:** Some system tables may have restricted access depending on SQL user role
-- **Standard/Basic:** Node-level system tables are not available — this is expected, not an error
+- **Self-Hosted:** `cockroach node status` requires CLI access (or admin SQL privilege if you need to fall back to internal tables). Most node-level health queries have no production-safe SQL alternative.
+- **Advanced/BYOC:** `cockroach node status` works the same way; certificate inspection is managed by Cockroach Labs.
+- **Standard/Basic:** No node-level visibility by design — use the Cloud Console.
 
 ## Troubleshooting
 
 | Issue | Tier | Fix |
 |-------|------|-----|
-| `crdb_internal.kv_node_status` empty | SH | Grant admin or VIEWCLUSTERMETADATA |
-| `crdb_internal` table not found | STD/BAS | Expected — use Cloud Console |
-| Node missing from gossip_nodes | SH | Check node process; verify --join address |
+| `cockroach node status` errors with permission denied | SH | Use a cert with admin or `VIEWCLUSTERMETADATA` |
+| Node missing from `cockroach node status` output | SH | Check node process; verify `--join` address |
+| Standard/Basic SQL doesn't expose node tables | STD/BAS | Expected — use Cloud Console |
 | Cloud Console shows degraded | ADV/BYOC | Check Cloud status page; contact support |
 | High RU consumption | BAS | Profile queries; set spending limits |
 | Cloud API returns 401 | ADV/BYOC | Regenerate API key |
@@ -407,7 +359,7 @@ All queries in this skill are read-only. No data is modified.
 
 **Official CockroachDB Documentation:**
 - [Monitoring and Alerting](https://www.cockroachlabs.com/docs/stable/monitoring-and-alerting)
-- [crdb_internal](https://www.cockroachlabs.com/docs/stable/crdb-internal.html)
+- [cockroach node status](https://www.cockroachlabs.com/docs/stable/cockroach-node)
 - [Production Checklist](https://www.cockroachlabs.com/docs/stable/recommended-production-settings)
 - [Cloud Console Monitoring](https://www.cockroachlabs.com/docs/cockroachcloud/cluster-overview-page)
 - [Export Metrics (Advanced)](https://www.cockroachlabs.com/docs/cockroachcloud/export-metrics)

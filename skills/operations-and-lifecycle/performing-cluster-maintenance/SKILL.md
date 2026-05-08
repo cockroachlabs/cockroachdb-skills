@@ -80,33 +80,33 @@ Self-Hosted operators manage all maintenance directly. The core operation is dra
 
 Run all checks before any maintenance operation. **Stop if any check fails.**
 
+**Checks 1-3, 5 (node liveness, drain state, replication, version consistency):**
+
+```bash
+cockroach node status --decommission --certs-dir=<certs-dir> --host=<any-live-node>
+```
+
+Stop conditions in the output:
+- any `is_live = false` (Check 1)
+- any `is_draining = true` (Check 2)
+- any `ranges_underreplicated > 0` (Check 3)
+- multiple distinct values in the `build` column (Check 5)
+
+**Check 4: No disruptive jobs running (WAIT or pause before proceeding):**
+
 ```sql
--- Check 1: All nodes live (STOP if any node is not live)
-SELECT n.node_id, n.is_live
-FROM crdb_internal.gossip_nodes n
-JOIN crdb_internal.gossip_liveness l USING (node_id) ORDER BY n.node_id;
-
--- Check 2: No other nodes currently draining (STOP if any draining)
-SELECT node_id FROM crdb_internal.gossip_liveness WHERE draining = true;
-
--- Check 3: Ranges fully replicated (STOP if under-replicated ranges exist)
-SELECT CASE WHEN array_length(replicas, 1) >= 3 THEN 'fully_replicated'
-            ELSE 'under_replicated' END AS status, COUNT(*)
-FROM crdb_internal.ranges_no_leases GROUP BY 1;
-
--- Check 4: No disruptive jobs running (WAIT or pause before proceeding)
 WITH j AS (SHOW JOBS)
 SELECT job_id, job_type, status, now() - created AS running_for FROM j
 WHERE status IN ('running', 'paused')
   AND job_type IN ('SCHEMA CHANGE', 'BACKUP', 'RESTORE', 'IMPORT', 'NEW SCHEMA CHANGE');
+```
 
--- Check 5: Not mid-upgrade (STOP if versions differ)
-SELECT DISTINCT build_tag FROM crdb_internal.gossip_nodes;
+**Check 6: Storage utilization safe (WARNING if any node > 70%):**
 
--- Check 6: Storage utilization safe (WARNING if any node > 70%)
-SELECT node_id,
-  ROUND((1 - available::FLOAT / capacity::FLOAT) * 100, 2) AS utilization_pct
-FROM crdb_internal.kv_store_status ORDER BY node_id;
+No production-safe SQL view exposes per-store capacity. Use the DB Console **Overview** → **Storage** page or scrape the per-node Prometheus endpoint:
+
+```bash
+curl -ks https://<node>:8080/_status/vars | grep -E '^capacity( |_used|_available)'
 ```
 
 **Stop conditions:** Do not proceed with maintenance if any node is not live, ranges are under-replicated, another node is draining, or a rolling upgrade is in progress. Wait for running jobs to complete or pause them.
@@ -153,13 +153,11 @@ Never use `kill -9` unless the process is unresponsive to SIGTERM.
 
 ### Post-Restart Verification
 
-```sql
-SELECT node_id, is_live FROM crdb_internal.gossip_nodes WHERE node_id = <node_id>;
--- is_live = true
-
-SELECT node_id, lease_count FROM crdb_internal.kv_store_status WHERE node_id = <node_id>;
--- lease_count should increase over minutes as leases rebalance
+```bash
+cockroach node status --certs-dir=<certs-dir> --host=<any-live-node>
 ```
+
+The restarted node should show `is_live = true`. The `replicas_leaseholders` column for that node should increase over the next several minutes as leases rebalance back.
 
 See [drain-details reference](references/drain-details.md) for drain phases, timeout configuration, and advanced monitoring.
 
@@ -174,12 +172,11 @@ ls -lh <store-path>/auxiliary/EMERGENCY_BALLAST
 ```
 
 **Disk utilization check:**
-```sql
-SELECT node_id,
-  ROUND(capacity / 1073741824.0, 2) AS total_gb,
-  ROUND(available / 1073741824.0, 2) AS available_gb,
-  ROUND((1 - available::FLOAT / capacity::FLOAT) * 100, 2) AS utilization_pct
-FROM crdb_internal.kv_store_status ORDER BY node_id;
+
+Use the DB Console **Overview** → **Storage** page or the per-node Prometheus endpoint:
+
+```bash
+curl -ks https://<node>:8080/_status/vars | grep -E '^capacity( |_used|_available)'
 ```
 
 Nodes above 70% utilization should be addressed before maintenance — draining a node temporarily increases load on remaining nodes.
@@ -237,12 +234,10 @@ Deferred patches still apply at the end of the deferral period. Deferral only de
 - Metrics page shows temporary dips in QPS and capacity
 - Alerts may fire for transient node unavailability
 
-**SQL (during maintenance):**
-```sql
--- Check which nodes are currently live
-SELECT node_id, build_tag, is_live
-FROM crdb_internal.gossip_nodes n
-JOIN crdb_internal.gossip_liveness l USING (node_id) ORDER BY node_id;
+**During maintenance:**
+```bash
+# Check which nodes are currently live and what version they're on
+cockroach node status --decommission --certs-dir=<certs-dir> --host=<any-live-node>
 ```
 
 ### Best Practices

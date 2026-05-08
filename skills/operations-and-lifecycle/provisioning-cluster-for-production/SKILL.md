@@ -127,10 +127,10 @@ cockroach init --certs-dir=certs --host=<any-node-address>
 ```
 
 **Step 5: Verify**
-```sql
-SELECT node_id, address, locality, build_tag, is_live
-FROM crdb_internal.gossip_nodes ORDER BY node_id;
+```bash
+cockroach node status --certs-dir=certs --host=<any-node-address>
 ```
+Every node started in step 3 should appear with `is_live = true` and the expected `locality`.
 
 ### Deploy on Kubernetes
 

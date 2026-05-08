@@ -76,14 +76,12 @@ foreground writes on the affected store may already be unhealthy.
 The minimum free space across stores is what bounds the schema change, not the
 total cluster free space (replicas are spread across nodes).
 
-```sql
-SELECT
-  node_id,
-  store_id,
-  ROUND((capacity - used) / 1073741824.0, 2) AS free_gb,
-  ROUND((used::FLOAT / capacity) * 100, 2)   AS used_pct
-FROM crdb_internal.kv_store_status
-ORDER BY free_gb ASC;
+No production-safe SQL view exposes per-store capacity. Use the DB Console
+**Overview** → **Storage** page (sorts per-store usage), or scrape the
+per-node Prometheus endpoint and look at the smallest `capacity_available`:
+
+```bash
+curl -ks https://<node>:8080/_status/vars | grep -E '^capacity( |_used|_available)'
 ```
 
 ### Step 2 — Estimate the affected table/index size
