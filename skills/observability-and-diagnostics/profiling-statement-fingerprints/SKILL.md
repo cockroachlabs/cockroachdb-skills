@@ -52,7 +52,7 @@ See [triaging-live-sql-activity permissions reference](../triaging-live-sql-acti
 ### Time-Series Bucketing
 
 **aggregated_ts:** Hourly UTC buckets (e.g., `2026-02-21 14:00:00` = 14:00-14:59 executions)
-**Data retention:** Default ~7 days (check `sql.stats.persisted_rows.max`)
+**Data retention:** Capped by row count, not time. `sql.stats.persisted_rows.max` (default 1,000,000) bounds the persisted statement+transaction rows; older buckets are compacted once the cap is reached. Effective wall-clock window depends on workload diversity.
 **Best practice:** Always filter by time window: `WHERE aggregated_ts > now() - INTERVAL '24 hours'`
 
 ### Aggregated vs Sampled Metrics
@@ -60,7 +60,7 @@ See [triaging-live-sql-activity permissions reference](../triaging-live-sql-acti
 | Metric Category | JSON Path | Scope | Use Case |
 |-----------------|-----------|-------|----------|
 | **Aggregated** | `statistics.statistics.*` | All executions | Latency, row counts, execution counts |
-| **Sampled** | `statistics.execution_statistics.*` | ~10% sample | CPU, contention, admission wait, memory/disk |
+| **Sampled** | `statistics.execution_statistics.*` | Probabilistic sample governed by `sql.txn_stats.sample_rate` (default 0.01) | CPU, contention, admission wait, memory/disk |
 
 **Critical:** Always check sampled metrics presence: `WHERE (statistics->'execution_statistics'->>'cnt') IS NOT NULL`
 
@@ -307,7 +307,7 @@ LIMIT 20;
 - **Privacy:** Use VIEWACTIVITYREDACTED in production
 - **Performance:** Always include time filters and LIMIT
 - **Complement to live triage:** Use together for complete coverage (historical + real-time)
-- **Data retention:** Default ~7 days; verify with `sql.stats.persisted_rows.max`
+- **Data retention:** Bounded by the row-count cap `sql.stats.persisted_rows.max` (default 1,000,000), not a TTL; effective time window varies with workload diversity
 - **Plan instability:** Multiple plan hashes indicate optimizer/schema changes
 
 ## References
