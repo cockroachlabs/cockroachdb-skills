@@ -114,9 +114,11 @@ SELECT variable, value FROM [SHOW ALL CLUSTER SETTINGS]
 WHERE variable IN (
   'kv.rangefeed.enabled', 'sql.stats.automatic_collection.enabled',
   'server.time_until_store_dead', 'admission.kv.enabled',
-  'cluster.preserve_downgrade_option', 'gc.ttlseconds'
+  'cluster.preserve_downgrade_option'
 ) ORDER BY variable;
 ```
+
+`gc.ttlseconds` is a zone-config parameter, not a cluster setting; check the effective value with `SHOW ZONE CONFIGURATION FOR ...` against the relevant table/database/range.
 
 ### Check 5: Consolidated Summary
 
@@ -166,7 +168,7 @@ FROM [SHOW ALL CLUSTER SETTINGS]
 WHERE variable IN (
   'kv.rangefeed.enabled', 'sql.stats.automatic_collection.enabled',
   'admission.kv.enabled', 'cluster.preserve_downgrade_option',
-  'server.time_until_store_dead', 'gc.ttlseconds'
+  'server.time_until_store_dead'
 ) ORDER BY variable;
 
 -- Enterprise license status (Self-Hosted only)

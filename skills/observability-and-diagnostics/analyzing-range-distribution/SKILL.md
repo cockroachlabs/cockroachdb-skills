@@ -29,7 +29,7 @@ Analyzes CockroachDB range distribution, leaseholder placement, and zone configu
 
 - SQL connection to CockroachDB cluster
 - Admin role OR `ZONECONFIG` system privilege
-- Understanding of CockroachDB range architecture (64MB default max size)
+- Understanding of CockroachDB range architecture (default 512MB max size; verify with `SHOW ZONE CONFIGURATION FOR RANGE default`)
 - Knowledge of cluster topology (node IDs, regions, availability zones)
 
 **Check your privileges:**
@@ -43,11 +43,11 @@ See [permissions reference](references/permissions.md) for RBAC setup.
 
 ### Ranges: Units of Data Distribution
 
-**Range:** Contiguous key space segment (default 64MB max size, configurable via zone config `range_max_bytes`)
+**Range:** Contiguous key space segment (default 512MB max size, configurable via zone config `range_max_bytes`)
 **Raft group:** Each range replicated across nodes (default 3 replicas)
 **Leaseholder:** Single replica handling reads and coordinating writes for a range
 
-**Critical:** Ranges split automatically at 64MB by default, but can fragment further due to load-based splitting during high write traffic.
+**Critical:** Ranges split automatically at `range_max_bytes` (default 512MB), but can fragment further due to load-based splitting during high write traffic.
 
 ### Leaseholders and Hotspots
 
@@ -61,7 +61,7 @@ See [permissions reference](references/permissions.md) for RBAC setup.
 **Causes:** High write throughput, sequential inserts (timestamp-based primary keys), load-based splitting
 **Symptoms:** High range count relative to data size, increased latency from Raft overhead
 
-**Fragmentation metric:** Ranges per GB (healthy: 1-15, fragmented: 50+)
+**Fragmentation metric:** Ranges per GB. With the 512MB default `range_max_bytes`, a fully-grown range covers 0.5 GB — so ~2 ranges/GB is the natural floor. Anything well above that (e.g., 10+ ranges/GB) suggests load-based splits or many small ranges; tune to your workload.
 
 ### Zone Configurations
 
@@ -113,7 +113,7 @@ ORDER BY (span_stats->>'approximate_disk_bytes')::INT DESC
 LIMIT 50;
 ```
 
-**Interpretation:** Large ranges (>64MB) indicate split lag; many small ranges (<10MB) indicate fragmentation.
+**Interpretation:** Ranges close to or above `range_max_bytes` (default 512MB) indicate split lag; many small ranges (<10MB) indicate fragmentation.
 
 **CRITICAL:** Always include `LIMIT` and target specific tables. Never run `SHOW RANGES WITH DETAILS` on entire database.
 
@@ -266,7 +266,7 @@ SHOW REGIONS;
 3. **Determine if expected:** Fragmentation may be intentional for load distribution
 4. **Remediate if excessive:** Increase `range_max_bytes` (with caution - larger ranges = slower splits), or investigate reducing write hotspots
 
-**CRITICAL:** Never increase `range_max_bytes` above 512MB without understanding impact on split/rebalance performance.
+**CRITICAL:** `range_max_bytes` defaults to 512MB. Raising it further without understanding the impact on split/rebalance performance is risky.
 
 ## Safety Considerations
 
@@ -322,7 +322,7 @@ See [permissions reference](references/permissions.md) for granting minimal priv
 - **DETAILS option:** Expensive operation - always use with LIMIT and targeted scope
 - **Fragmentation is sometimes intentional:** Load-based splitting improves concurrency
 - **Leaseholder concentration:** Check zone configs (lease_preferences) before assuming hotspot
-- **Range size target:** Default 64MB max (not 512MB as in older versions)
+- **Range size target:** Default `range_max_bytes` is 512MB (verify with `SHOW ZONE CONFIGURATION FOR RANGE default`)
 - **Replication lag:** Range placement may not immediately reflect zone config changes (rebalancing takes time)
 - **Cross-reference queries:** Combine range analysis with zone configs for complete picture
 - **Node mapping:** Use `SHOW REGIONS` for cluster-level locality, or `cockroach node status` for per-node locality

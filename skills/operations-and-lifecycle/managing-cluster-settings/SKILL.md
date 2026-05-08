@@ -83,10 +83,12 @@ SELECT variable, value FROM [SHOW ALL CLUSTER SETTINGS]
 WHERE variable IN (
   'kv.rangefeed.enabled', 'sql.stats.automatic_collection.enabled',
   'server.time_until_store_dead', 'admission.kv.enabled',
-  'gc.ttlseconds', 'cluster.preserve_downgrade_option',
+  'cluster.preserve_downgrade_option',
   'sql.defaults.idle_in_transaction_session_timeout'
 ) ORDER BY variable;
 ```
+
+`gc.ttlseconds` is a zone-config parameter, not a cluster setting; check with `SHOW ZONE CONFIGURATION FOR ...` against the relevant table/database/range.
 
 ### Search by Keyword
 
@@ -253,7 +255,7 @@ All other configuration is managed by Cockroach Labs. If more control over setti
 
 **Risk levels:**
 - **Low:** `sql.defaults.statement_timeout`, `diagnostics.reporting.enabled`
-- **Medium:** `gc.ttlseconds`, `kv.snapshot_rebalance.max_rate`
+- **Medium:** `kv.snapshot_rebalance.max_rate`, `gc.ttlseconds` (zone-config parameter — same risk class)
 - **High:** `cluster.preserve_downgrade_option`, `admission.kv.enabled`
 
 **Critical:** Never change settings during a rolling upgrade. Cluster settings affect ALL workloads on the cluster — prefer session variables for narrower scope when possible.
