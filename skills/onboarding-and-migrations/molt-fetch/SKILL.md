@@ -83,13 +83,7 @@ molt fetch --source "..." --target "..." --direct-copy --use-copy
 
 ## Common Workflows
 
-### 1. Validate before migrating
-```bash
-molt fetch --dry-run --source "..." --target "..." --bucket-path "s3://..."
-# Exports 1 row, imports, verifies, cleans up. Returns immediately.
-```
-
-### 2. Full migration with schema creation
+### 1. Full migration with schema creation
 ```bash
 molt fetch \
   --source "postgresql://user:pass@pg:5432/db" \
@@ -100,7 +94,7 @@ molt fetch \
   --log-file migration.log
 ```
 
-### 3. Resume after failure
+### 2. Resume after failure
 ```bash
 # List available continuation tokens
 molt fetch tokens --fetch-id "abc-123" --target "postgresql://root@crdb:26257/db"
@@ -111,12 +105,6 @@ molt fetch \
   --bucket-path "s3://mybucket/migration" \
   --fetch-id "abc-123" \
   --non-interactive
-```
-
-### 4. Validate flag syntax without connecting
-```bash
-molt fetch --compile-only --source "..." --target "..." --bucket-path "..."
-# Returns JSON: {"status":"ok","message":"arguments parsed successfully"}
 ```
 
 ## Error Recovery
