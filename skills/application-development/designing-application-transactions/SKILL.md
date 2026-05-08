@@ -292,16 +292,21 @@ WHERE u.id = incoming.id;
 ```sql
 DELETE FROM sessions
 WHERE expires_at < now()
+ORDER BY expires_at
 LIMIT 10000;
 ```
+
+`ORDER BY` keeps the batch deterministic so successive runs make forward progress; without it, CockroachDB may pick a different subset each iteration.
 
 **JDBC batching (Java):** Use `addBatch`/`executeBatch` instead of per-row `executeUpdate`. This sends all rows in a single network round trip rather than N individual round trips, eliminating idle time that can account for ~50% of transaction latency in chatty workloads.
 
 **Declarative TTL:**
 
 ```sql
+-- created_at must be TIMESTAMPTZ; the expression's result type must also be TIMESTAMPTZ.
+-- Cast if the source column is plain TIMESTAMP.
 ALTER TABLE events
-SET (ttl_expiration_expression = 'created_at + INTERVAL ''7 DAY''');
+SET (ttl_expiration_expression = '(created_at + INTERVAL ''7 DAY'')::TIMESTAMPTZ');
 ```
 
 ### 8. Use Follower Reads for Non-Critical Queries

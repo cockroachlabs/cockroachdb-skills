@@ -37,7 +37,7 @@ Diagnoses live cluster performance issues by identifying currently active long-r
 
 **Check your privileges:**
 ```sql
-SHOW GRANTS ON ROLE <username>;
+SHOW SYSTEM GRANTS FOR <username>;
 ```
 
 See [permissions reference](references/permissions.md) for detailed RBAC setup.
