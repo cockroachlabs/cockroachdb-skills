@@ -29,7 +29,13 @@ Guides developers through selecting the right multi-region pattern for their Coc
 ## Prerequisites
 
 - Understanding of CockroachDB range architecture and leaseholder concepts
-- Multi-region cluster or `cockroach demo` with locality flags for testing
+- A **multi-region cluster** with nodes started using `--locality=region=...,zone=...` matching the regions used in the examples below. Without matching localities the DDL errors with `region "..." does not exist` and constraints like `+region=...` match no nodes. Quickest path locally:
+  ```bash
+  # 9-node demo with three regions, three AZs each — note --no-example-database
+  cockroach demo --no-example-database --nodes=9 \
+    --demo-locality=region=NA-NE,az=1:region=NA-NE,az=2:region=NA-NE,az=3:region=NA-MW,az=1:region=NA-MW,az=2:region=NA-MW,az=3:region=EU-DE,az=1:region=EU-DE,az=2:region=EU-DE,az=3
+  ```
+  For long-running clusters, see [setting-up-local-cluster](../../onboarding-and-migrations/setting-up-local-cluster/SKILL.md) and add `--locality=region=...,zone=...` to each `cockroach start` invocation.
 - Knowledge of application write patterns (single-region vs multi-region)
 
 ## Pattern Selection
