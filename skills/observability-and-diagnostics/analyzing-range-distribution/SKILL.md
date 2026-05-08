@@ -34,7 +34,7 @@ Analyzes CockroachDB range distribution, leaseholder placement, and zone configu
 
 **Check your privileges:**
 ```sql
-SHOW GRANTS ON SYSTEM FOR current_user;  -- Should show admin or ZONECONFIG
+SHOW SYSTEM GRANTS FOR <username>;  -- Should show admin or ZONECONFIG
 ```
 
 See [permissions reference](references/permissions.md) for RBAC setup.
