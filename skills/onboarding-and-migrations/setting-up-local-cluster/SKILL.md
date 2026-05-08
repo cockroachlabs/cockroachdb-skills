@@ -95,8 +95,7 @@ cockroach start-single-node --insecure --listen-addr=localhost:26257 \
 cockroach sql --insecure --host=localhost:26257 -e "SELECT version();"
 
 # Verify all nodes joined (3-node cluster)
-cockroach sql --insecure --host=localhost:26257 \
-  -e "SELECT node_id, address, is_live FROM crdb_internal.gossip_nodes;"
+cockroach node status --insecure --host=localhost:26257
 
 # Check replication (should show num_replicas=3)
 cockroach sql --insecure --host=localhost:26257 \

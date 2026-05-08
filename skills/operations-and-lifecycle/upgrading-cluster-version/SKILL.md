@@ -82,11 +82,14 @@ Guides CockroachDB version upgrades end-to-end. Before providing procedures, thi
 
 ### Pre-Upgrade Validation
 
-```sql
--- All nodes live
-SELECT n.node_id, n.build_tag, n.is_live
-FROM crdb_internal.gossip_nodes n ORDER BY n.node_id;
+```bash
+# All nodes live, version-consistent, fully replicated
+cockroach node status --decommission --certs-dir=<certs-dir> --host=<any-live-node>
+```
 
+In the output: every node should show `is_live = true`, the `build` column should be a single value, and `ranges_underreplicated` should be `0` everywhere.
+
+```sql
 -- No bulk operations running
 WITH j AS (SHOW JOBS)
 SELECT job_id, job_type, status, now() - created AS running_for FROM j
@@ -95,11 +98,6 @@ WHERE status IN ('running', 'paused')
 
 -- No pending finalization from a previous upgrade
 SHOW CLUSTER SETTING cluster.preserve_downgrade_option;
-
--- Ranges fully replicated
-SELECT CASE WHEN array_length(replicas, 1) >= 3 THEN 'fully_replicated'
-            ELSE 'under_replicated' END AS status, COUNT(*)
-FROM crdb_internal.ranges_no_leases GROUP BY 1;
 ```
 
 ### Disable Auto-Finalization (Major Version — Recommended)
@@ -137,25 +135,23 @@ kubectl set image statefulset/cockroachdb cockroachdb=cockroachdb/cockroach:<new
 ```
 
 **Verify each node before proceeding to the next:**
-```sql
-SELECT node_id, build_tag, is_live
-FROM crdb_internal.gossip_nodes
-WHERE node_id = <upgraded-node-id>;
+```bash
+cockroach node status --certs-dir=<certs-dir> --host=<any-live-node> <upgraded-node-id>
 ```
+The targeted node should show `is_live = true` on the new `build`.
 
 ### Monitor Progress
 
-```sql
-SELECT n.node_id, n.build_tag AS version,
-  CASE WHEN n.build_tag = (SELECT MAX(build_tag) FROM crdb_internal.gossip_nodes)
-       THEN 'UPGRADED' ELSE 'PENDING' END AS status
-FROM crdb_internal.gossip_nodes n ORDER BY n.node_id;
+```bash
+cockroach node status --certs-dir=<certs-dir> --host=<any-live-node>
 ```
+Compare the `build` column across all rows. Nodes still on the old version are pending; rolling upgrade is complete when every row shows the new version.
 
 ### Finalize (Major Version Only — Irreversible)
 
+Confirm via `cockroach node status` that the `build` column has a single value (every node upgraded). Then:
+
 ```sql
-SELECT COUNT(DISTINCT build_tag) FROM crdb_internal.gossip_nodes;  -- Must be 1
 RESET CLUSTER SETTING cluster.preserve_downgrade_option;
 SHOW CLUSTER SETTING version;  -- Monitor until updated
 ```
@@ -183,10 +179,11 @@ Advanced clusters are managed by Cockroach Labs. You initiate major upgrades; pa
 4. Monitor progress in Cloud Console
 5. Finalize via Cloud Console when testing is complete
 
-**SQL verification during upgrade:**
-```sql
-SELECT build_tag AS version, COUNT(*) FROM crdb_internal.gossip_nodes GROUP BY 1;
+**Verification during upgrade:**
+```bash
+cockroach node status --certs-dir=<certs-dir> --host=<any-live-node>
 ```
+Tally the `build` column to see how many nodes are on the new version vs the old.
 
 ### Patch Upgrades
 

@@ -239,7 +239,7 @@ ALTER TABLE hot_table CONFIGURE ZONE USING lease_preferences = '[[+region=us-wes
 **Steps:**
 1. **Review intended configs:** Run Query 5 (SHOW ZONE CONFIGURATIONS)
 2. **Check actual replica placement:** Run Query 4 on critical tables, inspect `replicas` array for node IDs
-3. **Map node IDs to regions:** Cross-reference with `SHOW REGIONS` or `crdb_internal.gossip_nodes`
+3. **Map node IDs to regions:** Use `SHOW REGIONS` (cluster-wide) or read the `locality` column of `cockroach node status`
 4. **Identify mismatches:** Ranges not matching constraints indicate rebalancing in progress or misconfiguration
 
 **Example:**
@@ -250,8 +250,10 @@ SHOW ZONE CONFIGURATION FOR TABLE multi_region_table;
 -- Check replica placement
 SELECT range_id, replicas FROM [SHOW RANGES FROM TABLE multi_region_table] LIMIT 20;
 
--- Map node IDs to regions
-SELECT node_id, locality FROM crdb_internal.gossip_nodes;
+-- Map node IDs to regions (cluster-level view)
+SHOW REGIONS;
+-- For per-node locality strings, use the CLI:
+--   cockroach node status --certs-dir=<certs-dir> --host=<any-live-node>
 ```
 
 ### Workflow 3: Fragmentation Diagnosis
@@ -323,7 +325,7 @@ See [permissions reference](references/permissions.md) for granting minimal priv
 - **Range size target:** Default 64MB max (not 512MB as in older versions)
 - **Replication lag:** Range placement may not immediately reflect zone config changes (rebalancing takes time)
 - **Cross-reference queries:** Combine range analysis with zone configs for complete picture
-- **Node mapping:** Use `crdb_internal.gossip_nodes` to map node IDs to regions/zones
+- **Node mapping:** Use `SHOW REGIONS` for cluster-level locality, or `cockroach node status` for per-node locality
 
 ## References
 
