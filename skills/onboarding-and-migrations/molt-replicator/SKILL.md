@@ -66,8 +66,10 @@ CREATE DATABASE _replicator;
 ### Step 4: Test connectivity
 
 ```bash
+# preflight only takes --stagingConn and --targetConn (always required for the
+# target; stagingConn required if the target is not CRDB)
 replicator preflight \
-  --sourceConn "postgresql://user:pass@source:5432/db" \
+  --stagingConn "postgresql://root@crdb:26257/_replicator" \
   --targetConn "postgresql://root@crdb:26257/db"
 ```
 
@@ -190,7 +192,7 @@ replicator oraclelogminer \
 ## Gotchas
 
 - Staging schema (`_replicator.public`) is auto-created by replicator, but the **database** (`_replicator`) must exist first
-- `--publicationName` and `--slotName` must match what `molt fetch` created (default: `molt_fetch` / `molt_slot`)
+- `--publicationName` and `--slotName` must match what `molt fetch` created. `molt fetch`'s `--pglogical-publication-name` defaults to `molt_fetch` and its `--pglogical-replication-slot-name` has no default; on the replicator side, `--publicationName` has no default and `--slotName` defaults to `replicator`. If the names don't line up, set both explicitly on both sides.
 - DLQ table grows over time — monitor and purge failed rows periodically
 - Replicator holds an open replication slot on the source — this blocks WAL cleanup; monitor source disk usage
 - Graceful shutdown respects `--gracePeriod` (default: 30s); don't SIGKILL without it
