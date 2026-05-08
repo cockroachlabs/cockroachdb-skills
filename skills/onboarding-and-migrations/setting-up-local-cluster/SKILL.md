@@ -58,20 +58,25 @@ A 3-node cluster is recommended for development because it exercises replication
 ### 3-Node Cluster (Recommended)
 
 ```bash
-# Start 3 nodes with separate SQL, RPC, and HTTP ports
+# Start 3 nodes with separate SQL, RPC, and HTTP ports.
+# Use $HOME instead of ~ in --store / --log-dir / --pid-file: tilde does not
+# expand inside --flag=~/... in bash or zsh.
 cockroach start --insecure --listen-addr=localhost:26357 --sql-addr=localhost:26257 \
-  --http-addr=localhost:8080 --store=~/.cockroachdb/data/node1 \
-  --log-dir=~/.cockroachdb/logs/node1 \
+  --http-addr=localhost:8080 --store=$HOME/.cockroachdb/data/node1 \
+  --log-dir=$HOME/.cockroachdb/logs/node1 \
+  --pid-file=$HOME/.cockroachdb/data/node1/cockroach.pid \
   --join=localhost:26357,localhost:26358,localhost:26359 --background
 
 cockroach start --insecure --listen-addr=localhost:26358 --sql-addr=localhost:26258 \
-  --http-addr=localhost:8081 --store=~/.cockroachdb/data/node2 \
-  --log-dir=~/.cockroachdb/logs/node2 \
+  --http-addr=localhost:8081 --store=$HOME/.cockroachdb/data/node2 \
+  --log-dir=$HOME/.cockroachdb/logs/node2 \
+  --pid-file=$HOME/.cockroachdb/data/node2/cockroach.pid \
   --join=localhost:26357,localhost:26358,localhost:26359 --background
 
 cockroach start --insecure --listen-addr=localhost:26359 --sql-addr=localhost:26259 \
-  --http-addr=localhost:8082 --store=~/.cockroachdb/data/node3 \
-  --log-dir=~/.cockroachdb/logs/node3 \
+  --http-addr=localhost:8082 --store=$HOME/.cockroachdb/data/node3 \
+  --log-dir=$HOME/.cockroachdb/logs/node3 \
+  --pid-file=$HOME/.cockroachdb/data/node3/cockroach.pid \
   --join=localhost:26357,localhost:26358,localhost:26359 --background
 
 # Initialize the cluster (only needed on first start)
@@ -84,8 +89,9 @@ For minimal resource usage when full cluster capabilities are not needed:
 
 ```bash
 cockroach start-single-node --insecure --listen-addr=localhost:26257 \
-  --http-addr=localhost:8080 --store=~/.cockroachdb/data/node1 \
-  --log-dir=~/.cockroachdb/logs/node1 --background
+  --http-addr=localhost:8080 --store=$HOME/.cockroachdb/data/node1 \
+  --log-dir=$HOME/.cockroachdb/logs/node1 \
+  --pid-file=$HOME/.cockroachdb/data/node1/cockroach.pid --background
 ```
 
 ## Step 3: Verify the Cluster
@@ -97,9 +103,9 @@ cockroach sql --insecure --host=localhost:26257 -e "SELECT version();"
 # Verify all nodes joined (3-node cluster)
 cockroach node status --insecure --host=localhost:26257
 
-# Check replication (should show num_replicas=3)
+# Check replication factor (should show num_replicas = 3)
 cockroach sql --insecure --host=localhost:26257 \
-  -e "SHOW RANGES FROM DATABASE defaultdb;"
+  -e "SHOW ZONE CONFIGURATION FOR RANGE default;"
 ```
 
 ## Connection Details
@@ -126,15 +132,15 @@ export COCKROACHDB_SSLMODE=disable
 
 ```bash
 # Graceful shutdown via PID files
-kill $(cat ~/.cockroachdb/data/node1/cockroach.pid) 2>/dev/null
-kill $(cat ~/.cockroachdb/data/node2/cockroach.pid) 2>/dev/null
-kill $(cat ~/.cockroachdb/data/node3/cockroach.pid) 2>/dev/null
+kill $(cat $HOME/.cockroachdb/data/node1/cockroach.pid) 2>/dev/null
+kill $(cat $HOME/.cockroachdb/data/node2/cockroach.pid) 2>/dev/null
+kill $(cat $HOME/.cockroachdb/data/node3/cockroach.pid) 2>/dev/null
 ```
 
 ## Destroying All Data
 
 ```bash
-rm -rf ~/.cockroachdb/data ~/.cockroachdb/logs
+rm -rf $HOME/.cockroachdb/data $HOME/.cockroachdb/logs
 ```
 
 ## Air-Gapped / Restricted Environments
@@ -161,7 +167,7 @@ For environments without internet access:
 ## Safety Considerations
 
 - The cluster runs in **insecure mode** (no TLS, no authentication) -- suitable for local development only.
-- Data persists in `~/.cockroachdb/data` across restarts.
+- Data persists in `$HOME/.cockroachdb/data` across restarts.
 - The binary and data are user-local (`~/.cockroachdb/`) -- no `sudo` or system modifications.
 - A 3-node cluster uses approximately 750 MB of RAM total.
 
