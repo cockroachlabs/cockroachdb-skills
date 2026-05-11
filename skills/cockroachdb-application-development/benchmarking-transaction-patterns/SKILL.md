@@ -11,7 +11,7 @@ metadata:
 
 Guides users through benchmarking, explaining, and comparing two formulations of the same transactional business workflow in CockroachDB: explicit multi-statement transactions versus single-statement CTE transactions. Focuses on performance under contention, fair test methodology, and result interpretation.
 
-**Complement to design skills:** For general transaction design principles, see [designing-application-transactions](../designing-application-transactions/SKILL.md). For SQL syntax and query patterns, see [cockroachdb-sql](../../query-and-schema-design/cockroachdb-sql/SKILL.md).
+**Complement to design skills:** For general transaction design principles, see [designing-application-transactions](../designing-application-transactions/SKILL.md). For SQL syntax and query patterns, see [cockroachdb-sql](../../cockroachdb-query-and-schema-design/cockroachdb-sql/SKILL.md).
 
 ## Core Concept
 

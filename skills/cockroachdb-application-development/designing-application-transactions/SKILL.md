@@ -11,7 +11,7 @@ metadata:
 
 Guides application developers through the design principles and implementation patterns needed to build correct, performant, and resilient applications on CockroachDB. Covers the full spectrum from transaction scoping and retry logic to connection pooling and observability.
 
-**Complement to SQL skills:** For SQL syntax, schema design, and query optimization, see [cockroachdb-sql](../../query-and-schema-design/cockroachdb-sql/SKILL.md). For benchmarking transaction formulations under contention, see [benchmarking-transaction-patterns](../benchmarking-transaction-patterns/SKILL.md).
+**Complement to SQL skills:** For SQL syntax, schema design, and query optimization, see [cockroachdb-sql](../../cockroachdb-query-and-schema-design/cockroachdb-sql/SKILL.md). For benchmarking transaction formulations under contention, see [benchmarking-transaction-patterns](../benchmarking-transaction-patterns/SKILL.md).
 
 ## When to Use This Skill
 

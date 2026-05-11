@@ -19,9 +19,9 @@ Performs a comprehensive health check of a CockroachDB cluster. Before running d
 - Verifying production readiness
 - Monitoring capacity and performance
 
-**For live query issues:** Use [triaging-live-sql-activity](../../observability-and-diagnostics/triaging-live-sql-activity/SKILL.md).
-**For background jobs:** Use [monitoring-background-jobs](../../observability-and-diagnostics/monitoring-background-jobs/SKILL.md).
-**For range analysis:** Use [analyzing-range-distribution](../../observability-and-diagnostics/analyzing-range-distribution/SKILL.md).
+**For live query issues:** Use [triaging-live-sql-activity](../../cockroachdb-observability-and-diagnostics/triaging-live-sql-activity/SKILL.md).
+**For background jobs:** Use [monitoring-background-jobs](../../cockroachdb-observability-and-diagnostics/monitoring-background-jobs/SKILL.md).
+**For range analysis:** Use [analyzing-range-distribution](../../cockroachdb-observability-and-diagnostics/analyzing-range-distribution/SKILL.md).
 
 ---
 
@@ -357,7 +357,7 @@ All checks in this skill are read-only. No data is modified.
 - [upgrading-cluster-version](../upgrading-cluster-version/SKILL.md)
 - [managing-cluster-capacity](../managing-cluster-capacity/SKILL.md)
 - [performing-cluster-maintenance](../performing-cluster-maintenance/SKILL.md)
-- [monitoring-background-jobs](../../observability-and-diagnostics/monitoring-background-jobs/SKILL.md)
+- [monitoring-background-jobs](../../cockroachdb-observability-and-diagnostics/monitoring-background-jobs/SKILL.md)
 
 **Official CockroachDB Documentation:**
 - [Monitoring and Alerting](https://www.cockroachlabs.com/docs/stable/monitoring-and-alerting)

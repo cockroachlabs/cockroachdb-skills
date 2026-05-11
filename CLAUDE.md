@@ -176,14 +176,6 @@ The validator (`scripts/validate-spec.py`) checks:
 - SKILL.md exceeds 500 lines (consider using references/)
 - Broken internal references
 
-## Branch Naming Convention
-
-Use: `skill/domain/skill-name`
-
-Examples:
-- `skill/performance-and-scaling/analyzing-slow-queries`
-- `skill/security-and-governance/configuring-audit-logging`
-
 ## Skill Domains
 
 Skills are organized into 10 operational domains (all prefixed with `cockroachdb-`). Choose based on primary purpose:
@@ -207,9 +199,9 @@ If a skill spans multiple domains, choose the PRIMARY domain based on the main p
 
 1. **Propose first**: Open issue using `.github/ISSUE_TEMPLATE/new-skill.yml`
 2. **Get alignment**: Discuss scope and approach with maintainers
-3. **Create branch**: `skill/domain/skill-name`
-4. **Implement**: Create `skills/domain/skill-name/SKILL.md`
-5. **Validate locally**: Run `python scripts/validate-spec.py skills/domain/skill-name/`
+3. **Create branch**: For example: `add-skill/<domain>/<skill-name>`
+4. **Implement**: Create `skills/cockroachdb-<domain>/<skill-name>/SKILL.md`
+5. **Validate locally**: Run `python scripts/validate-spec.py skills/cockroachdb-<domain>/<skill-name>/`
 6. **Submit PR**: Use `.github/PULL_REQUEST_TEMPLATE.md`
 7. **Iterate**: Address feedback until CI passes
 
