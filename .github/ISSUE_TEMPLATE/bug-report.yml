@@ -22,7 +22,7 @@ body:
     attributes:
       label: Skill Path
       description: Full path to the skill directory
-      placeholder: "e.g., skills/performance-and-scaling/analyzing-slow-queries/"
+      placeholder: "e.g., skills/cockroachdb-performance-and-scaling/analyzing-slow-queries/"
     validations:
       required: true
 

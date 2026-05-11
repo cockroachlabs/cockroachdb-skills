@@ -11,7 +11,7 @@ metadata:
 
 Guides developers through selecting the right multi-region pattern for their CockroachDB application and implementing it with proper validation. Covers the decision model for choosing between regular regional tables, `REGIONAL BY ROW`, `GLOBAL` tables, and manual geo-partitioning, plus a hands-on demo framework for comparing approaches.
 
-**Complement to other skills:** For transaction design patterns, see [designing-application-transactions](../designing-application-transactions/SKILL.md). For SQL syntax and schema design, see [cockroachdb-sql](../../query-and-schema-design/cockroachdb-sql/SKILL.md).
+**Complement to other skills:** For transaction design patterns, see [designing-application-transactions](../designing-application-transactions/SKILL.md). For SQL syntax and schema design, see [cockroachdb-sql](../../cockroachdb-query-and-schema-design/cockroachdb-sql/SKILL.md).
 
 ## When to Use This Skill
 
@@ -35,7 +35,7 @@ Guides developers through selecting the right multi-region pattern for their Coc
   cockroach demo --no-example-database --nodes=9 \
     --demo-locality=region=NA-NE,az=1:region=NA-NE,az=2:region=NA-NE,az=3:region=NA-MW,az=1:region=NA-MW,az=2:region=NA-MW,az=3:region=EU-DE,az=1:region=EU-DE,az=2:region=EU-DE,az=3
   ```
-  For long-running clusters, see [setting-up-local-cluster](../../onboarding-and-migrations/setting-up-local-cluster/SKILL.md) and add `--locality=region=...,zone=...` to each `cockroach start` invocation.
+  For long-running clusters, see [setting-up-local-cluster](../../cockroachdb-onboarding-and-migrations/setting-up-local-cluster/SKILL.md) and add `--locality=region=...,zone=...` to each `cockroach start` invocation.
 - Knowledge of application write patterns (single-region vs multi-region)
 
 ## Pattern Selection

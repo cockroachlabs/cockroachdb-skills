@@ -63,21 +63,21 @@ cd cockroachdb-skills
 
 ### 2. Create a Feature Branch
 
-Use the naming convention: `skill/domain/skill-name`
+Use the convention of including the fully qualified skill name in the branch name: `add-skill/domain/skill-name`
 
 ```bash
-git checkout -b skill/performance-and-scaling/analyzing-slow-queries
+git checkout -b add-skill/performance-and-scaling/analyzing-slow-queries
 ```
 
 ### 3. Create Skill Directory
 
 ```bash
-mkdir -p skills/performance-and-scaling/analyzing-slow-queries
+mkdir -p skills/cockroachdb-performance-and-scaling/analyzing-slow-queries
 ```
 
 ### 4. Write SKILL.md
 
-Create `skills/domain/skill-name/SKILL.md` with required frontmatter and content.
+Create `skills/cockroachdb-<domain>/<skill-name>/SKILL.md` with required frontmatter and content.
 
 **Minimal example:**
 
@@ -128,13 +128,13 @@ This skill guides you through identifying, diagnosing, and resolving slow query 
 ### 5. Commit and Push
 
 ```bash
-git add skills/performance-and-scaling/analyzing-slow-queries/
+git add skills/cockroachdb-performance-and-scaling/analyzing-slow-queries/
 git commit -m "Add analyzing-slow-queries skill
 
 This skill helps users identify and diagnose slow queries using
 CockroachDB's built-in observability tools.
 
-git push origin skill/performance-and-scaling/analyzing-slow-queries
+git push origin add-skill/performance-and-scaling/analyzing-slow-queries
 ```
 
 ### 6. Open a Pull Request
@@ -293,7 +293,7 @@ pip install -r scripts/requirements.txt
 python scripts/validate-spec.py skills/
 
 # Validate specific skill
-python scripts/validate-spec.py skills/performance-and-scaling/analyzing-slow-queries/
+python scripts/validate-spec.py skills/cockroachdb-performance-and-scaling/analyzing-slow-queries/
 ```
 
 ### CI Validation

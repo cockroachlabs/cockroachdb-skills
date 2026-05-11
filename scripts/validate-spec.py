@@ -11,7 +11,7 @@ This script checks:
 
 Usage:
     python scripts/validate-spec.py skills/
-    python scripts/validate-spec.py skills/performance-and-scaling/analyzing-slow-queries/
+    python scripts/validate-spec.py skills/cockroachdb-performance-and-scaling/analyzing-slow-queries/
     python scripts/validate-spec.py skills/ --strict  # Fail on warnings
 """
 
