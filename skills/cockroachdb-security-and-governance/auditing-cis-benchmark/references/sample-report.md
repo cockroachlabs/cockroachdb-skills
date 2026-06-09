@@ -1,10 +1,8 @@
-# Sample CIS Benchmark Audit Report
+# CIS CockroachDB Benchmark Audit Report
 
-This is a sample report from an audit of a self-hosted CockroachDB production cluster. It demonstrates the expected output format with both quick scan and full audit findings.
+This is a sample report from an audit of a self-hosted CockroachDB production cluster. It demonstrates the expected output format with both quick scan and full audit findings. Use this as a template when producing audit reports — replace all values with actual findings from the target cluster.
 
 ---
-
-# CIS CockroachDB Benchmark Audit Report
 
 **Date:** 2026-06-09
 **Benchmark:** CIS CockroachDB 2.x v1.0.0 — Level 1
