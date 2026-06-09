@@ -84,8 +84,7 @@ Before starting, confirm with the user:
 4. **Certificate directory** — Path to TLS certificates (default: `/var/lib/cockroach/certs`)
 5. **Data directory** — Path to CockroachDB data store (default: `/var/lib/cockroach`)
 6. **Log directory** — Path to logs (default: `/var/lib/cockroach/logs` or `<store>/logs`)
-7. **Compliance context** — Which frameworks matter (SOC 2, HIPAA, PCI DSS, etc.)
-8. **Enterprise license** — Whether Enterprise features (EAR) are available
+7. **Enterprise license** — Whether Enterprise features (EAR) are available
 
 Record these values — they parameterize the checks below.
 
