@@ -98,7 +98,7 @@ These controls verify binary integrity, systemd service management, TLS initiali
 - 1.2: `systemctl is-enabled cockroach.service` → `enabled` (Automated)
 - 1.3: No `--insecure` flag; certs directory exists with valid CA-signed certs (Automated)
 - 1.4: `ps aux | grep -c insecure` → `0` (Automated)
-- 1.5: All nodes report same `build_tag` via `crdb_internal.gossip_nodes` (Automated)
+- 1.5: All nodes run same version — quick scan via `cockroach version`, full audit via DB Console Node List and `crdb_internal.gossip_nodes` (Automated)
 - 1.6: Rolling upgrade runbook exists and has been tested (Manual)
 - 1.7: `--enterprise-encryption` configured with external KMS, keys not on disk (Manual)
 
