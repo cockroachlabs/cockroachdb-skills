@@ -24,12 +24,9 @@ SHOW CLUSTER SETTING server.auth_log.sql_connections.enabled;
 SHOW CLUSTER SETTING server.auth_log.sql_sessions.enabled;
 
 -- Verify events in system.eventlog
-SELECT timestamp, (info::JSONB)->>'EventType' AS eventtype, info
+SELECT timestamp, (info::JSONB)->>'EventType' AS eventtype
 FROM system.eventlog
-WHERE (info::JSONB)->>'EventType' IN (
-  'client_connection_start', 'client_connection_end',
-  'client_authentication_failed', 'client_session_end'
-)
+WHERE (info::JSONB)->>'EventType' IN ('client_connection_start','client_authentication_failed')
 ORDER BY timestamp DESC LIMIT 20;
 ```
 
@@ -91,7 +88,7 @@ SHOW CLUSTER SETTING server.host_based_authentication.configuration;
 
 ## Data Protection
 
-### 5.1 / 5.2 — Backup Schedules
+### 5.1 — Backup Encryption Verification
 ```sql
 -- List backup schedules
 SELECT id, label, schedule_status, next_run, created
