@@ -40,9 +40,11 @@ Replicator reads changes from the source, buffers them in a staging schema on th
 
 ### Step 1: Initial bulk load with molt fetch
 
+`drop-on-target-and-recreate` drops any existing target tables first; run this only against a fresh or empty target.
+
 ```bash
 molt fetch \
-  --source "postgresql://user:pass@source:5432/db" \
+  --source "postgresql://<user>:<password>@source:5432/db" \
   --target "postgresql://root@crdb:26257/db" \
   --bucket-path "s3://mybucket/migration" \
   --table-handling drop-on-target-and-recreate
@@ -78,7 +80,7 @@ replicator preflight \
 ```bash
 replicator pglogical \
   --publicationName "molt_fetch" \
-  --sourceConn "postgresql://user:pass@source:5432/db" \
+  --sourceConn "postgresql://<user>:<password>@source:5432/db" \
   --stagingConn "postgresql://root@crdb:26257/_replicator" \
   --stagingSchema "_replicator.public" \
   --targetConn "postgresql://root@crdb:26257/db" \
@@ -99,7 +101,7 @@ curl http://localhost:8080/metrics | grep replicator_
 2. Let replicator drain remaining changes
 3. Confirm no new writes on source
 4. Stop replicator
-5. Decommission source
+5. Decommission the source only after `molt verify` passes and a source backup is confirmed
 
 ## Source-Specific Setup
 
@@ -130,7 +132,7 @@ replicator pglogical \
 
 ```bash
 replicator mylogical \
-  --sourceConn "mysql://root:pass@source:3306/db" \
+  --sourceConn "mysql://<user>:<password>@source:3306/db" \
   --stagingConn "postgresql://root@crdb:26257/_replicator" \
   --stagingSchema "_replicator.public" \
   --targetConn "postgresql://root@crdb:26257/db" \
@@ -146,7 +148,7 @@ replicator mylogical \
 
 ```bash
 replicator oraclelogminer \
-  --sourceConn "oracle://app_user:pass@oracle:1521/db" \
+  --sourceConn "oracle://<user>:<password>@oracle:1521/db" \
   --stagingConn "postgresql://root@crdb:26257/_replicator" \
   --stagingSchema "_replicator.public" \
   --targetConn "postgresql://root@crdb:26257/db" \

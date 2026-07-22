@@ -55,7 +55,7 @@ Sharding splits a table's PK range across workers. Supported PK types: INT, FLOA
 ### 1. Post-migration sanity check
 ```bash
 molt verify \
-  --source "postgresql://user:pass@pg:5432/db" \
+  --source "postgresql://<user>:<password>@pg:5432/db" \
   --target "postgresql://root@crdb:26257/db"
 ```
 
