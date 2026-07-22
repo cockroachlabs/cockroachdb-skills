@@ -73,7 +73,7 @@ keytool -import -alias cockroachdb -file ca.crt \
 
 ```go
 // Password authentication
-connStr := "postgresql://user:password@host:26257/defaultdb?sslmode=verify-full&sslrootcert=ca.crt"
+connStr := "postgresql://<user>:<password>@host:26257/defaultdb?sslmode=verify-full&sslrootcert=ca.crt"
 conn, err := pgx.Connect(context.Background(), connStr)
 
 // Client certificate authentication

@@ -51,17 +51,18 @@ Converts natural language questions into CockroachDB-compliant SQL queries, foll
 
 ### Initial Response
 
-When skill is invoked, ALWAYS:
-1. **Immediately detect connection** before any other action or response:
-   - Check if connection string is provided in the prompt (postgresql://...).
+When skill is invoked:
+1. **Check for an available connection** so queries run against the right cluster:
+   - Check if a connection string is provided in the prompt (postgresql://...).
      - If provided, use `cockroach sql --url "<provided-url>" -e "SQL"` to run queries. Do not use psql.
-   - Else check COCKROACH_URL environment variable (`echo $COCKROACH_URL`). 
+   - Else check the COCKROACH_URL environment variable (`echo $COCKROACH_URL`).
      - If set, use `cockroach sql --url $COCKROACH_URL -e "SQL"` to run queries. Do not use psql.
-   - Else check for cockroach-cloud MCP server availability
+   - Else check for cockroach-cloud MCP server availability.
+   - If none of these are available or it is unclear which cluster to use, ask the user before running anything.
 
 2. Focus exclusively on CockroachDB
 3. Emphasize "natural language to CockroachDB SQL" not "database conversion"
-4. Keep user-facing content CockroachDB-specific regardless of internal PostgreSQL rules.
+4. Present CockroachDB-specific syntax even when a rule derives from PostgreSQL compatibility.
 
 ### Output Format
 - Show generated SQL with explanatory comments

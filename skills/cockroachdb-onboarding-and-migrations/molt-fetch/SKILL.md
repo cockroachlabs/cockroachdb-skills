@@ -36,7 +36,7 @@ Cloud auth: pass `--use-implicit-auth` for IAM/ADC/managed identity, or set `AWS
 | Value | Behavior |
 |-------|----------|
 | `none` (default) | Append to existing tables |
-| `drop-on-target-and-recreate` | Drop + recreate from source schema; enables auto schema creation |
+| `drop-on-target-and-recreate` | Drop + recreate from source schema; enables auto schema creation. Destroys existing target tables and their data, so use only on fresh or empty targets |
 | `truncate-if-exists` | Truncate before loading; errors if table missing |
 
 ## Import Mode
@@ -84,9 +84,12 @@ molt fetch --source "..." --target "..." --direct-copy --use-copy
 ## Common Workflows
 
 ### 1. Full migration with schema creation
+
+`drop-on-target-and-recreate` drops any existing target tables first; run this only against a fresh or empty target.
+
 ```bash
 molt fetch \
-  --source "postgresql://user:pass@pg:5432/db" \
+  --source "postgresql://<user>:<password>@pg:5432/db" \
   --target "postgresql://root@crdb:26257/db" \
   --bucket-path "s3://mybucket/migration" \
   --table-handling drop-on-target-and-recreate \
